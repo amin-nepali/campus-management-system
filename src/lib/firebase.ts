@@ -17,6 +17,7 @@ const requiredConfig = {
   projectId: import.meta.env['VITE_FIREBASE_PROJECT_ID'],
   appId: import.meta.env['VITE_FIREBASE_APP_ID'],
 };
+const storageBucket = import.meta.env['VITE_FIREBASE_STORAGE_BUCKET'];
 
 const isConfigured = Object.values(requiredConfig).every(Boolean);
 const app = isConfigured
@@ -24,7 +25,7 @@ const app = isConfigured
     ? getApp()
     : initializeApp({
         ...requiredConfig,
-        storageBucket: import.meta.env['VITE_FIREBASE_STORAGE_BUCKET'],
+        storageBucket,
         messagingSenderId: import.meta.env['VITE_FIREBASE_MESSAGING_SENDER_ID'],
       })
   : null;
@@ -32,7 +33,9 @@ const app = isConfigured
 export const firebaseAuth: Auth | null = app ? getAuth(app) : null;
 export const firestoreDb: Firestore | null = app ? getFirestore(app) : null;
 export const firebaseStorage: FirebaseStorage | null = app
-  ? getStorage(app)
+  ? storageBucket
+    ? getStorage(app)
+    : null
   : null;
 export const firebaseConfigError = isConfigured
   ? null

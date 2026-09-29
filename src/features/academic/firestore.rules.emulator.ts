@@ -6,7 +6,15 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+  where,
+} from 'firebase/firestore';
 import { academicCollections } from './schema';
 
 const projectId = 'demo-campus-management';
@@ -82,6 +90,21 @@ beforeEach(async () => {
         sectionId: 'section-1',
         sectionName: 'A',
         subjectId: 'subject-1',
+        teacherUid: 'teacher-user',
+        active: true,
+      },
+    );
+    await setDoc(
+      doc(
+        db,
+        'teacherClassAccess',
+        'teacher-user--year-1--class-1--section-1',
+      ),
+      {
+        campusId: 'campus-1',
+        academicYearId: 'year-1',
+        classId: 'class-1',
+        sectionId: 'section-1',
         teacherUid: 'teacher-user',
         active: true,
       },
@@ -193,6 +216,24 @@ describe('academic Firestore rules', () => {
         updatedBy: 'teacher-user',
       }),
     );
+  });
+
+  it('allows teachers to read only enrollment indexes for assigned class sections', async () => {
+    const rosterQuery = (teacherUid: string) => {
+      const db = testEnvironment.authenticatedContext(teacherUid).firestore();
+      return getDocs(
+        query(
+          collection(db, 'studentClassAccess'),
+          where('academicYearId', '==', 'year-1'),
+          where('classId', '==', 'class-1'),
+          where('sectionId', '==', 'section-1'),
+          where('active', '==', true),
+        ),
+      );
+    };
+
+    await assertSucceeds(rosterQuery('teacher-user'));
+    await assertFails(rosterQuery('other-teacher'));
   });
 
   it('denies teacher access when the session belongs to another teacher', async () => {

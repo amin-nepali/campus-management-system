@@ -87,6 +87,47 @@ service cloud.firestore {
         && get(path).data.campusId == sessionData.campusId;
     }
 
+    function validAttendanceSession(data) {
+      return data.keys().hasAll([
+          'campusId', 'academicYearId', 'classId', 'sectionId', 'sectionName',
+          'subjectId', 'teacherId', 'date', 'periodLabel', 'status', 'createdBy'
+        ])
+        && data.keys().hasOnly([
+          'campusId', 'academicYearId', 'classId', 'sectionId', 'sectionName',
+          'subjectId', 'teacherId', 'date', 'periodLabel', 'status', 'createdBy',
+          'submittedBy', 'submittedAt', 'correctedAt', 'notes', 'createdAt', 'updatedAt'
+        ])
+        && data.campusId is string
+        && data.academicYearId is string
+        && data.classId is string
+        && data.sectionId is string
+        && data.sectionName is string
+        && data.subjectId is string
+        && data.date is string
+        && data.date.matches('^\\d{4}-\\d{2}-\\d{2}$')
+        && data.periodLabel is string
+        && data.periodLabel.size() <= 40
+        && data.status in ['draft', 'submitted', 'corrected']
+        && data.createdBy is string
+        && (!data.keys().hasAny(['notes']) || (data.notes is string && data.notes.size() <= 300));
+    }
+
+    function validAttendanceRecord(data) {
+      return data.keys().hasAll([
+          'sessionId', 'campusId', 'studentId', 'status', 'updatedBy'
+        ])
+        && data.keys().hasOnly([
+          'sessionId', 'campusId', 'studentId', 'status', 'note', 'updatedBy',
+          'updatedAt', 'createdAt'
+        ])
+        && data.sessionId is string
+        && data.campusId is string
+        && data.studentId is string
+        && data.status in ['present', 'absent', 'late', 'excused']
+        && data.updatedBy == request.auth.uid
+        && (!data.keys().hasAny(['note']) || (data.note is string && data.note.size() <= 300));
+    }
+
     match /campuses/{recordId} {
       allow read, write: if isActiveAdmin();
     }
@@ -214,6 +255,7 @@ service cloud.firestore {
     match /attendanceSessions/{recordId} {
       allow create: if isActiveAdmin()
         || (isActiveTeacher()
+          && validAttendanceSession(request.resource.data)
           && request.resource.data.teacherId == request.auth.uid
           && request.resource.data.createdBy == request.auth.uid
           && request.resource.data.status == 'draft'
@@ -229,6 +271,7 @@ service cloud.firestore {
           && request.resource.data.createdBy == request.auth.uid
           && hasTeacherAccess(resource.data)
           && hasTeacherAccess(request.resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'submittedAt', 'submittedBy', 'correctedAt', 'updatedAt'])
           && request.resource.data.campusId == resource.data.campusId
           && request.resource.data.academicYearId == resource.data.academicYearId
           && request.resource.data.classId == resource.data.classId
@@ -253,7 +296,7 @@ service cloud.firestore {
       }
       allow create: if isActiveAdmin()
         || (isActiveTeacher()
-          && request.resource.data.updatedBy == request.auth.uid
+          && validAttendanceRecord(request.resource.data)
           && teacherCanEditSession(request.resource.data.sessionId)
           && get(sessionPath(request.resource.data.sessionId)).data.status == 'draft'
           && request.resource.data.campusId == get(sessionPath(request.resource.data.sessionId)).data.campusId
@@ -267,10 +310,11 @@ service cloud.firestore {
           && studentIsEnrolledInSession(resource.data.studentId, get(sessionPath(resource.data.sessionId)).data));
       allow update: if isActiveAdmin()
         || (isActiveTeacher()
+          && validAttendanceRecord(request.resource.data)
           && resource.data.sessionId == request.resource.data.sessionId
           && resource.data.studentId == request.resource.data.studentId
           && resource.data.campusId == request.resource.data.campusId
-          && request.resource.data.updatedBy == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'note', 'updatedBy', 'updatedAt'])
           && teacherCanEditSession(resource.data.sessionId)
           && get(sessionPath(resource.data.sessionId)).data.status in ['submitted', 'corrected']
           && studentIsEnrolledInSession(resource.data.studentId, get(sessionPath(resource.data.sessionId)).data));

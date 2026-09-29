@@ -33,6 +33,16 @@
       ]
     },
     {
+      "collectionGroup": "studentClassAccess",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "academicYearId", "order": "ASCENDING" },
+        { "fieldPath": "classId", "order": "ASCENDING" },
+        { "fieldPath": "sectionId", "order": "ASCENDING" },
+        { "fieldPath": "active", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "notes",
       "queryScope": "COLLECTION",
       "fields": [
