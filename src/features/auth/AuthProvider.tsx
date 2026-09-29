@@ -106,7 +106,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
           return;
         }
 
-        const profile = profileFromData(firebaseUser.uid, profileSnapshot.data());
+        const profile = profileFromData(
+          firebaseUser.uid,
+          profileSnapshot.data(),
+        );
         if (!profile) {
           setProfileError(
             'Your account profile is incomplete. Contact a campus administrator.',

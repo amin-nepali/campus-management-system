@@ -11,11 +11,28 @@ const date = z.string().refine((value) => {
     parsed.toISOString().slice(0, 10) === value
   );
 }, 'Enter a valid date.');
-const requiredDate = date.refine((value) => value !== '', 'This date is required.');
+const requiredDate = date.refine(
+  (value) => value !== '',
+  'This date is required.',
+);
 
-export const attendanceStatuses = ['present', 'absent', 'late', 'excused'] as const;
-export const attendanceSessionStatuses = ['draft', 'submitted', 'corrected'] as const;
-export const auditActions = ['create', 'submit', 'correction', 'reopen'] as const;
+export const attendanceStatuses = [
+  'present',
+  'absent',
+  'late',
+  'excused',
+] as const;
+export const attendanceSessionStatuses = [
+  'draft',
+  'submitted',
+  'corrected',
+] as const;
+export const auditActions = [
+  'create',
+  'submit',
+  'correction',
+  'reopen',
+] as const;
 
 export const attendanceSchemas = {
   sessions: z

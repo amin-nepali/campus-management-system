@@ -96,9 +96,7 @@ export async function listAttendanceRecords(
 ): Promise<AttendanceRecord[]> {
   const recordsRef = collection(database(), 'attendanceRecords');
   const snapshot = sessionId
-    ? await getDocs(
-        query(recordsRef, where('sessionId', '==', sessionId)),
-      )
+    ? await getDocs(query(recordsRef, where('sessionId', '==', sessionId)))
     : await getDocs(recordsRef);
 
   return snapshot.docs.map((entry) => ({
@@ -119,7 +117,11 @@ export async function saveAttendanceRecord(
   });
   const collectionRef = collection(database(), 'attendanceRecords');
   const records = await getDocs(
-    query(collectionRef, where('sessionId', '==', sessionId), where('studentId', '==', studentId)),
+    query(
+      collectionRef,
+      where('sessionId', '==', sessionId),
+      where('studentId', '==', studentId),
+    ),
   );
 
   if (records.empty) {
@@ -143,9 +145,7 @@ export async function saveAttendanceRecord(
   return existingRecord.id;
 }
 
-export async function listAuditLogs(
-  entityId?: string,
-): Promise<
+export async function listAuditLogs(entityId?: string): Promise<
   Array<{
     id: string;
     campusId: string;

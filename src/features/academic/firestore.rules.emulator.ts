@@ -95,11 +95,7 @@ beforeEach(async () => {
       },
     );
     await setDoc(
-      doc(
-        db,
-        'teacherClassAccess',
-        'teacher-user--year-1--class-1--section-1',
-      ),
+      doc(db, 'teacherClassAccess', 'teacher-user--year-1--class-1--section-1'),
       {
         campusId: 'campus-1',
         academicYearId: 'year-1',
@@ -110,11 +106,7 @@ beforeEach(async () => {
       },
     );
     await setDoc(
-      doc(
-        db,
-        'studentClassAccess',
-        'student-user--year-1--class-1--section-1',
-      ),
+      doc(db, 'studentClassAccess', 'student-user--year-1--class-1--section-1'),
       {
         campusId: 'campus-1',
         academicYearId: 'year-1',
@@ -216,6 +208,16 @@ describe('academic Firestore rules', () => {
         updatedBy: 'teacher-user',
       }),
     );
+
+    await assertFails(
+      setDoc(doc(db, 'attendanceRecords', 'invalid-status-record'), {
+        sessionId: 'teacher-session',
+        campusId: 'campus-1',
+        studentId: 'student-1',
+        status: 'vacation',
+        updatedBy: 'teacher-user',
+      }),
+    );
   });
 
   it('allows teachers to read only enrollment indexes for assigned class sections', async () => {
@@ -276,22 +278,25 @@ describe('academic Firestore rules', () => {
     );
   });
 
-  it('denies teachers from writing attendance records into another teacher\'s session', async () => {
+  it("denies teachers from writing attendance records into another teacher's session", async () => {
     const db = testEnvironment.authenticatedContext('teacher-user').firestore();
     await testEnvironment.withSecurityRulesDisabled(async (context) => {
       const adminDb = context.firestore();
-      await setDoc(doc(adminDb, 'attendanceSessions', 'other-teacher-session'), {
-        campusId: 'campus-1',
-        academicYearId: 'year-1',
-        classId: 'class-2',
-        sectionId: 'section-2',
-        subjectId: 'subject-2',
-        teacherId: 'other-teacher',
-        date: '2026-08-03',
-        periodLabel: 'Period 2',
-        status: 'draft',
-        createdBy: 'other-teacher',
-      });
+      await setDoc(
+        doc(adminDb, 'attendanceSessions', 'other-teacher-session'),
+        {
+          campusId: 'campus-1',
+          academicYearId: 'year-1',
+          classId: 'class-2',
+          sectionId: 'section-2',
+          subjectId: 'subject-2',
+          teacherId: 'other-teacher',
+          date: '2026-08-03',
+          periodLabel: 'Period 2',
+          status: 'draft',
+          createdBy: 'other-teacher',
+        },
+      );
       await setDoc(doc(adminDb, 'attendanceRecords', 'foreign-record'), {
         sessionId: 'other-teacher-session',
         campusId: 'campus-1',

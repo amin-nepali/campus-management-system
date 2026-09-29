@@ -92,7 +92,9 @@ async function saveIndexedAcademicRecord(
         academicYearId: String(representative['academicYearId']),
         classId: String(representative['classId']),
         sectionId: String(representative['sectionId']),
-        sectionName: String(sectionSnapshot.data()?.['name'] ?? representative['sectionId']),
+        sectionName: String(
+          sectionSnapshot.data()?.['name'] ?? representative['sectionId'],
+        ),
         studentId,
         studentName: String(studentSnapshot.data()?.['fullName'] ?? ''),
         studentUserId,
@@ -197,11 +199,13 @@ async function getIndexesForGroup(
   name: 'enrollments' | 'teachingAssignments',
   previous: Record<string, unknown>,
   candidates: Array<{ id: string; data: Record<string, unknown> }>,
-): Promise<Array<{
-  collection: string;
-  id: string;
-  data: Record<string, unknown>;
-}>> {
+): Promise<
+  Array<{
+    collection: string;
+    id: string;
+    data: Record<string, unknown>;
+  }>
+> {
   if (name === 'enrollments') {
     const studentId = String(previous['studentId']);
     const student = await getDoc(doc(database(), 'students', studentId));
@@ -210,7 +214,9 @@ async function getIndexesForGroup(
     const academicYearId = String(previous['academicYearId']);
     const classId = String(previous['classId']);
     const sectionId = String(previous['sectionId']);
-    const sectionSnapshot = await getDoc(doc(database(), 'sections', sectionId));
+    const sectionSnapshot = await getDoc(
+      doc(database(), 'sections', sectionId),
+    );
     const studentName = String(student.data()?.['fullName'] ?? '');
     const active = candidates.some(
       ({ data }) =>
@@ -220,21 +226,23 @@ async function getIndexesForGroup(
         data['sectionId'] === sectionId &&
         data['status'] === 'active',
     );
-    return [{
-      collection: 'studentClassAccess',
-      id: accessIndexId([studentUserId, academicYearId, classId, sectionId]),
-      data: {
-        campusId: String(previous['campusId']),
-        academicYearId,
-        classId,
-        sectionId,
-        sectionName: String(sectionSnapshot.data()?.['name'] ?? sectionId),
-        studentId,
-        studentName,
-        studentUserId,
-        active,
+    return [
+      {
+        collection: 'studentClassAccess',
+        id: accessIndexId([studentUserId, academicYearId, classId, sectionId]),
+        data: {
+          campusId: String(previous['campusId']),
+          academicYearId,
+          classId,
+          sectionId,
+          sectionName: String(sectionSnapshot.data()?.['name'] ?? sectionId),
+          studentId,
+          studentName,
+          studentUserId,
+          active,
+        },
       },
-    }];
+    ];
   }
 
   const teacherId = String(previous['teacherId']);
@@ -257,12 +265,12 @@ async function getIndexesForGroup(
   );
   const sectionName = String(sectionSnapshot.data()?.['name'] ?? sectionId);
   const commonData = {
-      campusId: String(previous['campusId']),
-      academicYearId,
-      classId,
-      sectionId,
-      sectionName,
-      teacherUid,
+    campusId: String(previous['campusId']),
+    academicYearId,
+    classId,
+    sectionId,
+    sectionName,
+    teacherUid,
   };
   const classActive = candidates.some(
     ({ data }) =>
@@ -320,12 +328,18 @@ export async function rebuildAcademicAccessIndexes(): Promise<void> {
     getDocs(collection(db, 'teachingAssignmentAccess')),
     getDocs(collection(db, 'teacherClassAccess')),
   ]);
-  const studentProfiles = new Map(students.docs.map((entry) => [entry.id, entry.data()]));
-  const studentUsers = new Map(students.docs.map((entry) => [entry.id, entry.data()['userId']]));
+  const studentProfiles = new Map(
+    students.docs.map((entry) => [entry.id, entry.data()]),
+  );
+  const studentUsers = new Map(
+    students.docs.map((entry) => [entry.id, entry.data()['userId']]),
+  );
   const teacherUsers = new Map(
     teachers.docs.map((entry) => [entry.id, entry.data()['userId']]),
   );
-  const sectionNames = new Map(sections.docs.map((entry) => [entry.id, entry.data()['name']]));
+  const sectionNames = new Map(
+    sections.docs.map((entry) => [entry.id, entry.data()['name']]),
+  );
   const studentIndexes = new Map<string, Record<string, unknown>>();
   const teacherIndexes = new Map<string, Record<string, unknown>>();
   const teacherClassIndexes = new Map<string, Record<string, unknown>>();

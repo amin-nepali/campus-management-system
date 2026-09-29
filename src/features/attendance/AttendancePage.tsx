@@ -1,8 +1,4 @@
-import {
-  CalendarDays,
-  RefreshCw,
-  Save,
-} from 'lucide-react';
+import { CalendarDays, RefreshCw, Save } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -62,11 +58,8 @@ export function AttendancePage() {
 
   const visibleSessions = useMemo(
     () =>
-      sessions.filter(
-        (session) =>
-              isAdmin || session.teacherId === user?.id,
-      ),
-            [isAdmin, sessions, user],
+      sessions.filter((session) => isAdmin || session.teacherId === user?.id),
+    [isAdmin, sessions, user],
   );
 
   const selectedSession = visibleSessions.find(
@@ -180,7 +173,10 @@ export function AttendancePage() {
 
     const validation = attendanceSchemas.sessions.safeParse(payload);
     if (!validation.success) {
-      setError(validation.error.issues[0]?.message ?? 'Please review the attendance form.');
+      setError(
+        validation.error.issues[0]?.message ??
+          'Please review the attendance form.',
+      );
       setSaving(false);
       return;
     }
@@ -199,13 +195,18 @@ export function AttendancePage() {
       setForm(defaultForm());
       await loadData();
     } catch {
-      setError('Could not create the attendance session. Check the required class and subject links.');
+      setError(
+        'Could not create the attendance session. Check the required class and subject links.',
+      );
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleStatusChange(studentId: string, status: AttendanceStatus) {
+  async function handleStatusChange(
+    studentId: string,
+    status: AttendanceStatus,
+  ) {
     if (!selectedSession || !user) {
       return;
     }
@@ -222,7 +223,9 @@ export function AttendancePage() {
 
     const existing = records[studentId];
     const shouldAudit =
-      selectedSession.status === 'submitted' && existing && existing.status !== status;
+      selectedSession.status === 'submitted' &&
+      existing &&
+      existing.status !== status;
 
     try {
       await saveAttendanceRecord(selectedSession.id, studentId, {
@@ -256,7 +259,8 @@ export function AttendancePage() {
       return;
     }
 
-    const nextStatus = selectedSession.status === 'draft' ? 'submitted' : 'corrected';
+    const nextStatus =
+      selectedSession.status === 'draft' ? 'submitted' : 'corrected';
 
     try {
       await updateAttendanceSession(selectedSession.id, {
@@ -289,11 +293,21 @@ export function AttendancePage() {
   }
 
   if (!user) {
-    return <section className="page-content"><h1>Attendance</h1><p>Please sign in to continue.</p></section>;
+    return (
+      <section className="page-content">
+        <h1>Attendance</h1>
+        <p>Please sign in to continue.</p>
+      </section>
+    );
   }
 
   if (!isTeacher && user.role !== 'student' && user.role !== 'parent') {
-    return <section className="page-content"><h1>Attendance</h1><p>Access is restricted to classroom users.</p></section>;
+    return (
+      <section className="page-content">
+        <h1>Attendance</h1>
+        <p>Access is restricted to classroom users.</p>
+      </section>
+    );
   }
 
   return (
@@ -308,7 +322,11 @@ export function AttendancePage() {
 
       {isTeacher ? (
         <>
-          <form className="academic-form" onSubmit={handleCreateSession} noValidate>
+          <form
+            className="academic-form"
+            onSubmit={handleCreateSession}
+            noValidate
+          >
             <div className="academic-form-heading">
               <div>
                 <h2>Create attendance session</h2>
@@ -317,7 +335,9 @@ export function AttendancePage() {
             </div>
             <div className="academic-fields">
               <div className="academic-field">
-                <label htmlFor="attendance-scope">Assigned class and subject</label>
+                <label htmlFor="attendance-scope">
+                  Assigned class and subject
+                </label>
                 <select
                   id="attendance-scope"
                   value={form.scopeId}
@@ -345,7 +365,10 @@ export function AttendancePage() {
                   type="date"
                   value={form.date}
                   onChange={(event) =>
-                    setForm((current) => ({ ...current, date: event.target.value }))
+                    setForm((current) => ({
+                      ...current,
+                      date: event.target.value,
+                    }))
                   }
                 />
               </div>
@@ -363,14 +386,22 @@ export function AttendancePage() {
                 />
               </div>
             </div>
-            {error && <p className="academic-error" role="alert">{error}</p>}
+            {error && (
+              <p className="academic-error" role="alert">
+                {error}
+              </p>
+            )}
             <div className="academic-form-actions">
               <button
                 className="primary-button academic-submit"
                 type="submit"
                 disabled={saving || !selectedScope}
               >
-                {saving ? <RefreshCw size={16} className="spin" /> : <CalendarDays size={16} />}
+                {saving ? (
+                  <RefreshCw size={16} className="spin" />
+                ) : (
+                  <CalendarDays size={16} />
+                )}
                 {saving ? 'Saving...' : 'Create session'}
               </button>
             </div>
@@ -383,15 +414,25 @@ export function AttendancePage() {
           )}
 
           {visibleSessions.length > 0 && selectedSession && (
-            <div className="academic-list-heading" style={{ marginTop: '2rem' }}>
+            <div
+              className="academic-list-heading"
+              style={{ marginTop: '2rem' }}
+            >
               <div>
                 <h2>Session roll</h2>
                 <span>
                   {selectedSession.classId} · {selectedSession.sectionName}
                 </span>
               </div>
-              <button className="text-command" type="button" onClick={handleSubmitSession}>
-                <Save size={15} /> {selectedSession.status === 'submitted' ? 'Mark corrected' : 'Submit session'}
+              <button
+                className="text-command"
+                type="button"
+                onClick={handleSubmitSession}
+              >
+                <Save size={15} />{' '}
+                {selectedSession.status === 'submitted'
+                  ? 'Mark corrected'
+                  : 'Submit session'}
               </button>
             </div>
           )}
@@ -399,7 +440,12 @@ export function AttendancePage() {
           {visibleSessions.length > 0 && (
             <div className="academic-list" style={{ marginTop: '1rem' }}>
               {visibleSessions.map((session) => (
-                <button key={session.id} type="button" className="text-command" onClick={() => setSelectedSessionId(session.id)}>
+                <button
+                  key={session.id}
+                  type="button"
+                  className="text-command"
+                  onClick={() => setSelectedSessionId(session.id)}
+                >
                   {session.date} · {session.classId} · {session.sectionName} ·{' '}
                   {session.status}
                 </button>
@@ -435,7 +481,9 @@ export function AttendancePage() {
                             }
                           >
                             {attendanceStatuses.map((status) => (
-                              <option value={status} key={status}>{status}</option>
+                              <option value={status} key={status}>
+                                {status}
+                              </option>
                             ))}
                           </select>
                         </td>
@@ -467,7 +515,9 @@ export function AttendancePage() {
               <tbody>
                 <tr>
                   <td colSpan={3}>
-                    <span className="muted">No attendance history is available for this account yet.</span>
+                    <span className="muted">
+                      No attendance history is available for this account yet.
+                    </span>
                   </td>
                 </tr>
               </tbody>

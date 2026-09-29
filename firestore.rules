@@ -47,8 +47,7 @@ service cloud.firestore {
       let path = /databases/$(database)/documents/teacherClassAccess/$(request.auth.uid + '--' + data.academicYearId + '--' + data.classId + '--' + data.sectionId);
       return exists(path)
         && get(path).data.active == true
-        && get(path).data.teacherUid == request.auth.uid
-        && get(path).data.campusId == data.campusId;
+        && get(path).data.teacherUid == request.auth.uid;
     }
 
     function hasStudentAccess(data) {
