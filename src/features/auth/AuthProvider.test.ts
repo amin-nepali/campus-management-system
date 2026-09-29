@@ -1,24 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { getBootstrapProfile } from './AuthProvider';
+import { profileFromData } from './AuthProvider';
 
-describe('admin profile bootstrapping', () => {
-  it('creates an active admin profile for the provided administrator login', () => {
-    const profile = getBootstrapProfile({
-      uid: 'admin-seeded-user',
-      email: 'aminnepali987@gmail.com',
+describe('Firestore profile parsing', () => {
+  it('accepts a provisioned active administrator profile', () => {
+    const profile = profileFromData('admin-seeded-user', {
+      role: 'admin',
       displayName: 'Campus Administrator',
-      phoneNumber: '+977-9800000000',
-      photoURL: 'https://example.com/avatar.png',
-    } as any);
+      email: 'admin@example.invalid',
+      status: 'active',
+      campusIds: [],
+    });
 
     expect(profile).toMatchObject({
       id: 'admin-seeded-user',
       authUid: 'admin-seeded-user',
       role: 'admin',
-      email: 'aminnepali987@gmail.com',
+      email: 'admin@example.invalid',
       status: 'active',
       campusIds: [],
       displayName: 'Campus Administrator',
     });
+  });
+
+  it('rejects incomplete profiles instead of inferring roles from email', () => {
+    expect(
+      profileFromData('unprovisioned-user', {
+        email: 'admin@example.invalid',
+        displayName: 'Administrator',
+      }),
+    ).toBeNull();
   });
 });

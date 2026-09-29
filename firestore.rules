@@ -39,14 +39,24 @@ service cloud.firestore {
       let path = /databases/$(database)/documents/teachingAssignmentAccess/$(request.auth.uid + '--' + data.academicYearId + '--' + data.classId + '--' + data.sectionId + '--' + data.subjectId);
       return exists(path)
         && get(path).data.active == true
-        && get(path).data.teacherUid == request.auth.uid;
+        && get(path).data.teacherUid == request.auth.uid
+        && get(path).data.campusId == data.campusId;
+    }
+
+    function hasTeacherClassAccess(data) {
+      let path = /databases/$(database)/documents/teacherClassAccess/$(request.auth.uid + '--' + data.academicYearId + '--' + data.classId + '--' + data.sectionId);
+      return exists(path)
+        && get(path).data.active == true
+        && get(path).data.teacherUid == request.auth.uid
+        && get(path).data.campusId == data.campusId;
     }
 
     function hasStudentAccess(data) {
       let path = /databases/$(database)/documents/studentClassAccess/$(request.auth.uid + '--' + data.academicYearId + '--' + data.classId + '--' + data.sectionId);
       return exists(path)
         && get(path).data.active == true
-        && get(path).data.studentUserId == request.auth.uid;
+        && get(path).data.studentUserId == request.auth.uid
+        && get(path).data.campusId == data.campusId;
     }
 
     function hasStudentSubmissionAccess(data, studentId) {
@@ -64,6 +74,17 @@ service cloud.firestore {
     function validAssignmentPublication(data) {
       return data.status != 'published'
         || (data.publishedAt is timestamp && data.dueAt is timestamp && data.dueAt > request.time);
+    }
+
+    function studentIsEnrolledInSession(studentId, sessionData) {
+      let student = get(/databases/$(database)/documents/students/$(studentId)).data;
+      let path = /databases/$(database)/documents/studentClassAccess/$(student.userId + '--' + sessionData.academicYearId + '--' + sessionData.classId + '--' + sessionData.sectionId);
+      return student.active == true
+        && exists(path)
+        && get(path).data.active == true
+        && get(path).data.studentId == studentId
+        && get(path).data.studentUserId == student.userId
+        && get(path).data.campusId == sessionData.campusId;
     }
 
     match /campuses/{recordId} {
@@ -101,7 +122,13 @@ service cloud.firestore {
       allow write: if isActiveAdmin();
     }
     match /studentClassAccess/{recordId} {
-      allow read: if isActiveAdmin() || ((isActiveStudent() || isActiveParent()) && resource.data.studentUserId == request.auth.uid);
+      allow read: if isActiveAdmin()
+        || ((isActiveStudent() || isActiveParent()) && resource.data.studentUserId == request.auth.uid)
+        || (isActiveTeacher() && hasTeacherClassAccess(resource.data));
+      allow write: if isActiveAdmin();
+    }
+    match /teacherClassAccess/{recordId} {
+      allow read: if isActiveAdmin() || (isActiveTeacher() && resource.data.teacherUid == request.auth.uid);
       allow write: if isActiveAdmin();
     }
 
@@ -185,21 +212,73 @@ service cloud.firestore {
     }
 
     match /attendanceSessions/{recordId} {
-      allow create: if isActiveTeacher() && request.resource.data.teacherId == request.auth.uid;
-      allow read: if isActiveAdmin() || (isActiveTeacher() && resource.data.teacherId == request.auth.uid);
-      allow update: if isActiveTeacher() && resource.data.teacherId == request.auth.uid && request.resource.data.teacherId == request.auth.uid;
+      allow create: if isActiveAdmin()
+        || (isActiveTeacher()
+          && request.resource.data.teacherId == request.auth.uid
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.status == 'draft'
+          && hasTeacherAccess(request.resource.data));
+      allow read: if isActiveAdmin()
+        || (isActiveTeacher() && resource.data.teacherId == request.auth.uid && hasTeacherAccess(resource.data))
+        || (isActiveStudent() && resource.data.status in ['submitted', 'corrected'] && hasStudentAccess(resource.data));
+      allow update: if isActiveAdmin()
+        || (isActiveTeacher()
+          && resource.data.teacherId == request.auth.uid
+          && request.resource.data.teacherId == request.auth.uid
+          && resource.data.createdBy == request.auth.uid
+          && request.resource.data.createdBy == request.auth.uid
+          && hasTeacherAccess(resource.data)
+          && hasTeacherAccess(request.resource.data)
+          && request.resource.data.campusId == resource.data.campusId
+          && request.resource.data.academicYearId == resource.data.academicYearId
+          && request.resource.data.classId == resource.data.classId
+          && request.resource.data.sectionId == resource.data.sectionId
+          && request.resource.data.subjectId == resource.data.subjectId
+          && request.resource.data.date == resource.data.date
+          && request.resource.data.periodLabel == resource.data.periodLabel
+          && request.resource.data.status in ['draft', 'submitted', 'corrected']
+          && (request.resource.data.status != 'submitted' || (request.resource.data.submittedBy == request.auth.uid && request.resource.data.submittedAt is timestamp))
+          && (request.resource.data.status != 'corrected' || request.resource.data.correctedAt is timestamp));
       allow delete: if isActiveAdmin();
     }
 
     match /attendanceRecords/{recordId} {
-      allow create: if isActiveTeacher() && request.resource.data.sessionId != null;
-      allow read: if isActiveAdmin() || (isActiveTeacher() && get(/databases/$(database)/documents/attendanceSessions/$(resource.data.sessionId)).data.teacherId == request.auth.uid) || (isActiveStudent() && get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.userId == request.auth.uid);
-      allow update: if isActiveTeacher() && resource.data.sessionId == request.resource.data.sessionId && resource.data.studentId == request.resource.data.studentId;
+      function sessionPath(sessionId) {
+        return /databases/$(database)/documents/attendanceSessions/$(sessionId);
+      }
+      function teacherCanEditSession(sessionId) {
+        return exists(sessionPath(sessionId))
+          && get(sessionPath(sessionId)).data.teacherId == request.auth.uid
+          && hasTeacherAccess(get(sessionPath(sessionId)).data);
+      }
+      allow create: if isActiveAdmin()
+        || (isActiveTeacher()
+          && request.resource.data.updatedBy == request.auth.uid
+          && teacherCanEditSession(request.resource.data.sessionId)
+          && get(sessionPath(request.resource.data.sessionId)).data.status == 'draft'
+          && request.resource.data.campusId == get(sessionPath(request.resource.data.sessionId)).data.campusId
+          && studentIsEnrolledInSession(request.resource.data.studentId, get(sessionPath(request.resource.data.sessionId)).data));
+      allow read: if isActiveAdmin()
+        || (isActiveTeacher() && teacherCanEditSession(resource.data.sessionId))
+        || (isActiveStudent()
+          && exists(sessionPath(resource.data.sessionId))
+          && get(sessionPath(resource.data.sessionId)).data.status in ['submitted', 'corrected']
+          && get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.userId == request.auth.uid
+          && studentIsEnrolledInSession(resource.data.studentId, get(sessionPath(resource.data.sessionId)).data));
+      allow update: if isActiveAdmin()
+        || (isActiveTeacher()
+          && resource.data.sessionId == request.resource.data.sessionId
+          && resource.data.studentId == request.resource.data.studentId
+          && resource.data.campusId == request.resource.data.campusId
+          && request.resource.data.updatedBy == request.auth.uid
+          && teacherCanEditSession(resource.data.sessionId)
+          && get(sessionPath(resource.data.sessionId)).data.status in ['submitted', 'corrected']
+          && studentIsEnrolledInSession(resource.data.studentId, get(sessionPath(resource.data.sessionId)).data));
       allow delete: if isActiveAdmin();
     }
 
     match /auditLogs/{recordId} {
-      allow read: if isActiveAdmin() || isActiveTeacher();
+      allow read: if isActiveAdmin() || (isActiveTeacher() && resource.data.actorUserId == request.auth.uid);
       allow create: if isActiveAdmin() || (isActiveTeacher() && request.resource.data.actorUserId == request.auth.uid);
       allow update, delete: if isActiveAdmin();
     }

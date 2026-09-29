@@ -83,13 +83,18 @@ async function saveIndexedAcademicRecord(
       const studentSnapshot = await getDoc(doc(db, 'students', studentId));
       const studentUserId = studentSnapshot.data()?.['userId'];
       if (typeof studentUserId !== 'string' || !studentUserId) continue;
+      const sectionSnapshot = await getDoc(
+        doc(db, 'sections', String(representative['sectionId'])),
+      );
       const active = group.some((entry) => entry.data['status'] === 'active');
       const fields = {
         campusId: String(representative['campusId']),
         academicYearId: String(representative['academicYearId']),
         classId: String(representative['classId']),
         sectionId: String(representative['sectionId']),
+        sectionName: String(sectionSnapshot.data()?.['name'] ?? representative['sectionId']),
         studentId,
+        studentName: String(studentSnapshot.data()?.['fullName'] ?? ''),
         studentUserId,
         active,
       };
@@ -102,12 +107,15 @@ async function saveIndexedAcademicRecord(
       const teacherSnapshot = await getDoc(doc(db, 'teachers', teacherId));
       const teacherUid = teacherSnapshot.data()?.['userId'];
       if (typeof teacherUid !== 'string' || !teacherUid) continue;
+      const sectionId = String(representative['sectionId']);
+      const sectionSnapshot = await getDoc(doc(db, 'sections', sectionId));
       const active = group.some((entry) => entry.data['active'] === true);
       const fields = {
         campusId: String(representative['campusId']),
         academicYearId: String(representative['academicYearId']),
         classId: String(representative['classId']),
-        sectionId: String(representative['sectionId']),
+        sectionId,
+        sectionName: String(sectionSnapshot.data()?.['name'] ?? sectionId),
         subjectId: String(representative['subjectId']),
         teacherUid,
         active,
@@ -115,6 +123,27 @@ async function saveIndexedAcademicRecord(
       indexEntries.set(
         `teachingAssignmentAccess/${accessIndexId([teacherUid, fields.academicYearId, fields.classId, fields.sectionId, fields.subjectId])}`,
         fields,
+      );
+
+      const classGroup = candidates.filter(
+        ({ data }) =>
+          data['teacherId'] === teacherId &&
+          data['academicYearId'] === fields.academicYearId &&
+          data['classId'] === fields.classId &&
+          data['sectionId'] === fields.sectionId,
+      );
+      const classFields = {
+        campusId: fields.campusId,
+        academicYearId: fields.academicYearId,
+        classId: fields.classId,
+        sectionId: fields.sectionId,
+        sectionName: fields.sectionName,
+        teacherUid,
+        active: classGroup.some(({ data }) => data['active'] === true),
+      };
+      indexEntries.set(
+        `teacherClassAccess/${accessIndexId([teacherUid, fields.academicYearId, fields.classId, fields.sectionId])}`,
+        classFields,
       );
     }
   }
@@ -153,9 +182,9 @@ async function deleteIndexedAcademicRecord(
     .map((entry) => ({ id: entry.id, data: entry.data() }));
   const oldData = existing.data();
   const batch = writeBatch(db);
-  const updatedIndex = await getIndexForGroup(name, oldData, candidates);
+  const updatedIndexes = await getIndexesForGroup(name, oldData, candidates);
   batch.delete(existing.ref);
-  if (updatedIndex) {
+  for (const updatedIndex of updatedIndexes) {
     batch.set(
       doc(db, updatedIndex.collection, updatedIndex.id),
       updatedIndex.data,
@@ -164,23 +193,25 @@ async function deleteIndexedAcademicRecord(
   await batch.commit();
 }
 
-async function getIndexForGroup(
+async function getIndexesForGroup(
   name: 'enrollments' | 'teachingAssignments',
   previous: Record<string, unknown>,
   candidates: Array<{ id: string; data: Record<string, unknown> }>,
-): Promise<{
+): Promise<Array<{
   collection: string;
   id: string;
   data: Record<string, unknown>;
-} | null> {
+}>> {
   if (name === 'enrollments') {
     const studentId = String(previous['studentId']);
     const student = await getDoc(doc(database(), 'students', studentId));
     const studentUserId = student.data()?.['userId'];
-    if (typeof studentUserId !== 'string' || !studentUserId) return null;
+    if (typeof studentUserId !== 'string' || !studentUserId) return [];
     const academicYearId = String(previous['academicYearId']);
     const classId = String(previous['classId']);
     const sectionId = String(previous['sectionId']);
+    const sectionSnapshot = await getDoc(doc(database(), 'sections', sectionId));
+    const studentName = String(student.data()?.['fullName'] ?? '');
     const active = candidates.some(
       ({ data }) =>
         data['studentId'] === studentId &&
@@ -189,7 +220,7 @@ async function getIndexForGroup(
         data['sectionId'] === sectionId &&
         data['status'] === 'active',
     );
-    return {
+    return [{
       collection: 'studentClassAccess',
       id: accessIndexId([studentUserId, academicYearId, classId, sectionId]),
       data: {
@@ -197,21 +228,24 @@ async function getIndexForGroup(
         academicYearId,
         classId,
         sectionId,
+        sectionName: String(sectionSnapshot.data()?.['name'] ?? sectionId),
         studentId,
+        studentName,
         studentUserId,
         active,
       },
-    };
+    }];
   }
 
   const teacherId = String(previous['teacherId']);
   const teacher = await getDoc(doc(database(), 'teachers', teacherId));
   const teacherUid = teacher.data()?.['userId'];
-  if (typeof teacherUid !== 'string' || !teacherUid) return null;
+  if (typeof teacherUid !== 'string' || !teacherUid) return [];
   const academicYearId = String(previous['academicYearId']);
   const classId = String(previous['classId']);
   const sectionId = String(previous['sectionId']);
   const subjectId = String(previous['subjectId']);
+  const sectionSnapshot = await getDoc(doc(database(), 'sections', sectionId));
   const active = candidates.some(
     ({ data }) =>
       data['teacherId'] === teacherId &&
@@ -221,25 +255,48 @@ async function getIndexForGroup(
       data['subjectId'] === subjectId &&
       data['active'] === true,
   );
-  return {
-    collection: 'teachingAssignmentAccess',
-    id: accessIndexId([
-      teacherUid,
-      academicYearId,
-      classId,
-      sectionId,
-      subjectId,
-    ]),
-    data: {
+  const sectionName = String(sectionSnapshot.data()?.['name'] ?? sectionId);
+  const commonData = {
       campusId: String(previous['campusId']),
       academicYearId,
       classId,
       sectionId,
-      subjectId,
+      sectionName,
       teacherUid,
-      active,
-    },
   };
+  const classActive = candidates.some(
+    ({ data }) =>
+      data['teacherId'] === teacherId &&
+      data['academicYearId'] === academicYearId &&
+      data['classId'] === classId &&
+      data['sectionId'] === sectionId &&
+      data['active'] === true,
+  );
+  return [
+    {
+      collection: 'teachingAssignmentAccess',
+      id: accessIndexId([
+        teacherUid,
+        academicYearId,
+        classId,
+        sectionId,
+        subjectId,
+      ]),
+      data: {
+        ...commonData,
+        subjectId,
+        active,
+      },
+    },
+    {
+      collection: 'teacherClassAccess',
+      id: accessIndexId([teacherUid, academicYearId, classId, sectionId]),
+      data: {
+        ...commonData,
+        active: classActive,
+      },
+    },
+  ];
 }
 
 export async function rebuildAcademicAccessIndexes(): Promise<void> {
@@ -249,24 +306,29 @@ export async function rebuildAcademicAccessIndexes(): Promise<void> {
     teachingAssignments,
     students,
     teachers,
+    sections,
     oldStudentIndexes,
     oldTeacherIndexes,
+    oldTeacherClassIndexes,
   ] = await Promise.all([
     getDocs(collection(db, 'enrollments')),
     getDocs(collection(db, 'teachingAssignments')),
     getDocs(collection(db, 'students')),
     getDocs(collection(db, 'teachers')),
+    getDocs(collection(db, 'sections')),
     getDocs(collection(db, 'studentClassAccess')),
     getDocs(collection(db, 'teachingAssignmentAccess')),
+    getDocs(collection(db, 'teacherClassAccess')),
   ]);
-  const studentUsers = new Map(
-    students.docs.map((entry) => [entry.id, entry.data()['userId']]),
-  );
+  const studentProfiles = new Map(students.docs.map((entry) => [entry.id, entry.data()]));
+  const studentUsers = new Map(students.docs.map((entry) => [entry.id, entry.data()['userId']]));
   const teacherUsers = new Map(
     teachers.docs.map((entry) => [entry.id, entry.data()['userId']]),
   );
+  const sectionNames = new Map(sections.docs.map((entry) => [entry.id, entry.data()['name']]));
   const studentIndexes = new Map<string, Record<string, unknown>>();
   const teacherIndexes = new Map<string, Record<string, unknown>>();
+  const teacherClassIndexes = new Map<string, Record<string, unknown>>();
 
   for (const enrollment of enrollments.docs) {
     const value = enrollment.data();
@@ -288,7 +350,9 @@ export async function rebuildAcademicAccessIndexes(): Promise<void> {
       academicYearId,
       classId,
       sectionId,
+      sectionName: String(sectionNames.get(sectionId) ?? sectionId),
       studentId,
+      studentName: String(studentProfiles.get(studentId)?.['fullName'] ?? ''),
       studentUserId,
       active: value['status'] === 'active' || previous?.['active'] === true,
     });
@@ -316,9 +380,26 @@ export async function rebuildAcademicAccessIndexes(): Promise<void> {
       academicYearId,
       classId,
       sectionId,
+      sectionName: String(sectionNames.get(sectionId) ?? sectionId),
       subjectId,
       teacherUid,
       active: value['active'] === true || previous?.['active'] === true,
+    });
+    const classIdKey = accessIndexId([
+      teacherUid,
+      academicYearId,
+      classId,
+      sectionId,
+    ]);
+    const priorClass = teacherClassIndexes.get(classIdKey);
+    teacherClassIndexes.set(classIdKey, {
+      campusId: String(value['campusId'] ?? ''),
+      academicYearId,
+      classId,
+      sectionId,
+      sectionName: String(sectionNames.get(sectionId) ?? sectionId),
+      teacherUid,
+      active: value['active'] === true || priorClass?.['active'] === true,
     });
   }
 
@@ -330,6 +411,11 @@ export async function rebuildAcademicAccessIndexes(): Promise<void> {
   for (const entry of oldTeacherIndexes.docs) {
     if (!teacherIndexes.has(entry.id)) {
       teacherIndexes.set(entry.id, { ...entry.data(), active: false });
+    }
+  }
+  for (const entry of oldTeacherClassIndexes.docs) {
+    if (!teacherClassIndexes.has(entry.id)) {
+      teacherClassIndexes.set(entry.id, { ...entry.data(), active: false });
     }
   }
 
@@ -348,6 +434,11 @@ export async function rebuildAcademicAccessIndexes(): Promise<void> {
   }
   for (const [id, value] of teacherIndexes) {
     batch.set(doc(db, 'teachingAssignmentAccess', id), value);
+    pending += 1;
+    if (pending === 450) await flush();
+  }
+  for (const [id, value] of teacherClassIndexes) {
+    batch.set(doc(db, 'teacherClassAccess', id), value);
     pending += 1;
     if (pending === 450) await flush();
   }

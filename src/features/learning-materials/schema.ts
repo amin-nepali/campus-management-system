@@ -112,6 +112,7 @@ export type TeachingAccess = {
   classId: string;
   sectionId: string;
   subjectId: string;
+  sectionName?: string;
   teacherUid: string;
   active: boolean;
 };
@@ -121,7 +122,9 @@ export type StudentClassAccess = {
   academicYearId: string;
   classId: string;
   sectionId: string;
+  sectionName?: string;
   studentId: string;
+  studentName?: string;
   studentUserId: string;
   active: boolean;
 };

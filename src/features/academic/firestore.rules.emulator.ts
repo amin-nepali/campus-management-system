@@ -52,6 +52,12 @@ beforeEach(async () => {
       displayName: 'Teacher',
       email: 'teacher@example.invalid',
     });
+    await setDoc(doc(db, 'users', 'other-teacher'), {
+      role: 'teacher',
+      status: 'active',
+      displayName: 'Other Teacher',
+      email: 'other-teacher@example.invalid',
+    });
     await setDoc(doc(db, 'users', 'disabled-admin'), {
       role: 'admin',
       status: 'disabled',
@@ -61,18 +67,65 @@ beforeEach(async () => {
     await setDoc(doc(db, 'students', 'student-1'), {
       fullName: 'Student User',
       userId: 'student-user',
+      active: true,
     });
+    await setDoc(
+      doc(
+        db,
+        'teachingAssignmentAccess',
+        'teacher-user--year-1--class-1--section-1--subject-1',
+      ),
+      {
+        campusId: 'campus-1',
+        academicYearId: 'year-1',
+        classId: 'class-1',
+        sectionId: 'section-1',
+        subjectId: 'subject-1',
+        teacherUid: 'teacher-user',
+        active: true,
+      },
+    );
+    await setDoc(
+      doc(
+        db,
+        'studentClassAccess',
+        'student-user--year-1--class-1--section-1',
+      ),
+      {
+        campusId: 'campus-1',
+        academicYearId: 'year-1',
+        classId: 'class-1',
+        sectionId: 'section-1',
+        studentId: 'student-1',
+        studentName: 'Student User',
+        studentUserId: 'student-user',
+        active: true,
+      },
+    );
     await setDoc(doc(db, 'attendanceSessions', 'attendance-session-1'), {
       campusId: 'campus-1',
       academicYearId: 'year-1',
       classId: 'class-1',
-      section: 'A',
+      sectionId: 'section-1',
       subjectId: 'subject-1',
       teacherId: 'teacher-user',
       date: '2026-08-01',
       periodLabel: 'Period 1',
       status: 'draft',
       createdBy: 'teacher-user',
+    });
+    await setDoc(doc(db, 'attendanceSessions', 'submitted-session'), {
+      campusId: 'campus-1',
+      academicYearId: 'year-1',
+      classId: 'class-1',
+      sectionId: 'section-1',
+      subjectId: 'subject-1',
+      teacherId: 'teacher-user',
+      date: '2026-08-01',
+      periodLabel: 'Period 2',
+      status: 'submitted',
+      createdBy: 'teacher-user',
+      submittedBy: 'teacher-user',
     });
   });
 });
@@ -118,7 +171,7 @@ describe('academic Firestore rules', () => {
         campusId: 'campus-1',
         academicYearId: 'year-1',
         classId: 'class-1',
-        section: 'A',
+        sectionId: 'section-1',
         subjectId: 'subject-1',
         teacherId: 'teacher-user',
         date: '2026-08-02',
@@ -148,13 +201,77 @@ describe('academic Firestore rules', () => {
         campusId: 'campus-1',
         academicYearId: 'year-1',
         classId: 'class-2',
-        section: 'B',
+        sectionId: 'section-2',
         subjectId: 'subject-1',
         teacherId: 'other-teacher',
         date: '2026-08-02',
         periodLabel: 'Period 3',
         status: 'draft',
         createdBy: 'teacher-user',
+      }),
+    );
+  });
+
+  it('denies a teacher from creating a session outside their assigned scope', async () => {
+    const db = testEnvironment.authenticatedContext('teacher-user').firestore();
+
+    await assertFails(
+      setDoc(doc(db, 'attendanceSessions', 'unassigned-session'), {
+        campusId: 'campus-1',
+        academicYearId: 'year-1',
+        classId: 'class-2',
+        sectionId: 'section-2',
+        subjectId: 'subject-2',
+        teacherId: 'teacher-user',
+        date: '2026-08-03',
+        periodLabel: 'Period 1',
+        status: 'draft',
+        createdBy: 'teacher-user',
+      }),
+    );
+  });
+
+  it('denies teachers from writing attendance records into another teacher\'s session', async () => {
+    const db = testEnvironment.authenticatedContext('teacher-user').firestore();
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      const adminDb = context.firestore();
+      await setDoc(doc(adminDb, 'attendanceSessions', 'other-teacher-session'), {
+        campusId: 'campus-1',
+        academicYearId: 'year-1',
+        classId: 'class-2',
+        sectionId: 'section-2',
+        subjectId: 'subject-2',
+        teacherId: 'other-teacher',
+        date: '2026-08-03',
+        periodLabel: 'Period 2',
+        status: 'draft',
+        createdBy: 'other-teacher',
+      });
+      await setDoc(doc(adminDb, 'attendanceRecords', 'foreign-record'), {
+        sessionId: 'other-teacher-session',
+        campusId: 'campus-1',
+        studentId: 'student-1',
+        status: 'present',
+        updatedBy: 'other-teacher',
+      });
+    });
+
+    await assertFails(
+      setDoc(doc(db, 'attendanceRecords', 'new-foreign-record'), {
+        sessionId: 'other-teacher-session',
+        campusId: 'campus-1',
+        studentId: 'student-1',
+        status: 'absent',
+        updatedBy: 'teacher-user',
+      }),
+    );
+    await assertFails(
+      setDoc(doc(db, 'attendanceRecords', 'foreign-record'), {
+        sessionId: 'other-teacher-session',
+        campusId: 'campus-1',
+        studentId: 'student-1',
+        status: 'absent',
+        updatedBy: 'teacher-user',
       }),
     );
   });
@@ -166,7 +283,7 @@ describe('academic Firestore rules', () => {
     await testEnvironment.withSecurityRulesDisabled(async (context) => {
       const db = context.firestore();
       await setDoc(doc(db, 'attendanceRecords', 'student-record'), {
-        sessionId: 'attendance-session-1',
+        sessionId: 'submitted-session',
         campusId: 'campus-1',
         studentId: 'student-1',
         status: 'late',
@@ -188,6 +305,20 @@ describe('academic Firestore rules', () => {
     );
     await assertFails(
       getDoc(doc(studentDb, 'attendanceRecords', 'other-student-record')),
+    );
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), 'attendanceRecords', 'draft-attendance'),
+        {
+          sessionId: 'attendance-session-1',
+          campusId: 'campus-1',
+          studentId: 'student-1',
+          status: 'present',
+        },
+      );
+    });
+    await assertFails(
+      getDoc(doc(studentDb, 'attendanceRecords', 'draft-attendance')),
     );
   });
 
