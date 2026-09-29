@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
 } from 'react';
@@ -19,6 +20,7 @@ import {
   createAcademicRecord,
   deleteAcademicRecord,
   listAcademicRecords,
+  rebuildAcademicAccessIndexes,
   updateAcademicRecord,
 } from './repository';
 
@@ -462,11 +464,16 @@ export function AcademicSetupPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const accessIndexesRebuilt = useRef(false);
 
   const loadRecords = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      if (!accessIndexesRebuilt.current) {
+        await rebuildAcademicAccessIndexes();
+        accessIndexesRebuilt.current = true;
+      }
       const loaded = await Promise.all(
         relatedCollections.map(
           async (name) => [name, await listAcademicRecords(name)] as const,

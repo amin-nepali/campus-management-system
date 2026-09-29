@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "test:rules": "npx --yes firebase-tools@14.22.0 emulators:exec --project demo-campus-management --only firestore \"npm run test:rules:runner\"",
+    "test:rules": "npx --yes firebase-tools@14.22.0 emulators:exec --project demo-campus-management --only firestore,storage \"npm run test:rules:runner\"",
     "test:rules:runner": "vitest run --config vitest.rules.config.ts",
     "test:watch": "vitest"
   },

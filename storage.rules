@@ -1,0 +1,78 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function activeUser(role) {
+      return signedIn()
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == role
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.status == 'active';
+    }
+
+    function teacherScope(data) {
+      let path = /databases/(default)/documents/teachingAssignmentAccess/$(request.auth.uid + '--' + data.academicYearId + '--' + data.classId + '--' + data.sectionId + '--' + data.subjectId);
+      return firestore.exists(path)
+        && firestore.get(path).data.active == true
+        && firestore.get(path).data.teacherUid == request.auth.uid;
+    }
+
+    function studentScope(data) {
+      let path = /databases/(default)/documents/studentClassAccess/$(request.auth.uid + '--' + data.academicYearId + '--' + data.classId + '--' + data.sectionId);
+      return firestore.exists(path)
+        && firestore.get(path).data.active == true
+        && firestore.get(path).data.studentUserId == request.auth.uid;
+    }
+
+    function allowedUpload() {
+      return request.resource.size > 0
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('application/pdf|image/jpeg|image/png|text/plain|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    }
+
+    function canManageLearningContent(kind, contentId, teacherUid) {
+      let path = /databases/(default)/documents/$(kind)/$(contentId);
+      return activeUser('teacher')
+        && teacherUid == request.auth.uid
+        && firestore.exists(path)
+        && firestore.get(path).data.teacherId == request.auth.uid
+        && firestore.get(path).data.status in ['draft', 'published', 'closed', 'archived']
+        && teacherScope(firestore.get(path).data);
+    }
+
+    match /learning/{kind}/{teacherUid}/{contentId}/{fileName} {
+      allow read: if kind in ['notes', 'assignments'] && (canManageLearningContent(kind, contentId, teacherUid)
+        || (activeUser('student')
+          && firestore.exists(/databases/(default)/documents/$(kind)/$(contentId))
+          && ((kind == 'notes' && firestore.get(/databases/(default)/documents/$(kind)/$(contentId)).data.status == 'published')
+            || (kind == 'assignments' && firestore.get(/databases/(default)/documents/$(kind)/$(contentId)).data.status in ['published', 'closed']))
+          && studentScope(firestore.get(/databases/(default)/documents/$(kind)/$(contentId)).data)));
+      allow create: if kind in ['notes', 'assignments']
+        && resource == null
+        && allowedUpload()
+        && canManageLearningContent(kind, contentId, teacherUid)
+        && firestore.get(/databases/(default)/documents/$(kind)/$(contentId)).data.status in ['draft', 'published'];
+      allow update, delete: if false;
+    }
+
+    match /submissions/{studentUid}/{assignmentId}/{fileName} {
+      function assignment() {
+        return firestore.get(/databases/(default)/documents/assignments/$(assignmentId)).data;
+      }
+      allow read: if (activeUser('student') && request.auth.uid == studentUid)
+        || (activeUser('teacher') && assignment().teacherId == request.auth.uid && teacherScope(assignment()));
+      allow create: if activeUser('student')
+        && request.auth.uid == studentUid
+        && allowedUpload()
+        && firestore.exists(/databases/(default)/documents/assignments/$(assignmentId))
+        && assignment().status == 'published'
+        && assignment().allowSubmissions == true
+        && assignment().dueAt > request.time
+        && studentScope(assignment());
+      allow update, delete: if false;
+    }
+  }
+}

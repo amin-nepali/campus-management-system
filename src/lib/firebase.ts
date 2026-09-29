@@ -5,6 +5,11 @@ import {
   getFirestore,
   type Firestore,
 } from 'firebase/firestore';
+import {
+  connectStorageEmulator,
+  getStorage,
+  type FirebaseStorage,
+} from 'firebase/storage';
 
 const requiredConfig = {
   apiKey: import.meta.env['VITE_FIREBASE_API_KEY'],
@@ -26,6 +31,9 @@ const app = isConfigured
 
 export const firebaseAuth: Auth | null = app ? getAuth(app) : null;
 export const firestoreDb: Firestore | null = app ? getFirestore(app) : null;
+export const firebaseStorage: FirebaseStorage | null = app
+  ? getStorage(app)
+  : null;
 export const firebaseConfigError = isConfigured
   ? null
   : 'Firebase is not configured. Add the required VITE_FIREBASE_* values to your local .env file.';
@@ -38,5 +46,8 @@ if (app && import.meta.env['VITE_USE_FIREBASE_EMULATORS'] === 'true') {
   }
   if (firestoreDb) {
     connectFirestoreEmulator(firestoreDb, '127.0.0.1', 8080);
+  }
+  if (firebaseStorage) {
+    connectStorageEmulator(firebaseStorage, '127.0.0.1', 9199);
   }
 }

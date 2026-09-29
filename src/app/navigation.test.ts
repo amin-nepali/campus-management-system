@@ -28,6 +28,14 @@ describe('role-aware navigation', () => {
     expect(teacherPaths).not.toContain('/my-children');
   });
 
+  it('exposes notes and assignment workflows to teachers and students', () => {
+    for (const role of ['teacher', 'student'] as const) {
+      const paths = getNavigationForRole(role).map((item) => item.path);
+      expect(paths).toContain('/notes');
+      expect(paths).toContain('/assignments');
+    }
+  });
+
   it('exposes academic setup only in administrator navigation', () => {
     const adminPaths = getNavigationForRole('admin').map((item) => item.path);
     const studentPaths = getNavigationForRole('student').map(

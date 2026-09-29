@@ -706,6 +706,219 @@ input:focus-visible {
   gap: 6px;
 }
 
+.learning-page {
+  max-width: 1120px;
+}
+.learning-editor {
+  margin-top: 30px;
+}
+.learning-wide {
+  grid-column: span 2;
+}
+.learning-field-textarea,
+.academic-field textarea,
+.submission-form textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #dbe1db;
+  border-radius: 4px;
+  color: var(--ink);
+  background: white;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.55;
+  resize: vertical;
+}
+.academic-field textarea:focus,
+.submission-form textarea:focus {
+  border-color: #398a67;
+  outline: 3px solid #dff2e8;
+}
+.learning-checkbox {
+  grid-column: span 2;
+  align-self: end;
+  min-height: 39px;
+}
+.learning-publish {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 39px;
+  margin: 0;
+  padding: 0 13px;
+  border-radius: 4px;
+}
+.learning-publish:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.learning-feedback,
+.learning-notice {
+  margin: 18px 0 0;
+  padding: 10px 12px;
+  border-left: 3px solid #b84b3e;
+  background: #fff4f1;
+}
+.learning-notice {
+  border-left-color: #31805d;
+  color: #246648;
+  background: #edf7f0;
+  font-size: 12px;
+}
+.learning-list {
+  margin-top: 27px;
+}
+.learning-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+}
+.learning-row-main {
+  min-width: 0;
+  flex: 1;
+}
+.learning-row-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.learning-row-title strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+.learning-row-main > p {
+  margin: 7px 0 0;
+  color: #7b8780;
+  font-size: 11px;
+}
+.learning-row-main .learning-excerpt {
+  max-width: 760px;
+  color: #49564e;
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+.learning-status {
+  padding: 4px 7px;
+  border-radius: 3px;
+  color: #58665e;
+  background: #edf0ed;
+  font-size: 9px;
+  text-transform: capitalize;
+}
+.status-published,
+.status-submitted {
+  color: #246648;
+  background: #e6f3eb;
+}
+.status-closed,
+.status-archived,
+.status-graded {
+  color: #78633c;
+  background: #f6f0df;
+}
+.learning-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 9px;
+}
+.learning-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  margin-top: 8px;
+}
+.learning-attachments .text-command {
+  max-width: 240px;
+  overflow-wrap: anywhere;
+}
+.learning-due {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.submission-form {
+  display: grid;
+  gap: 8px;
+  max-width: 650px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #e6eae5;
+}
+.submission-form > label:first-child {
+  color: #3f4a44;
+  font-size: 11px;
+  font-weight: 600;
+}
+.submission-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  padding: 7px 0;
+  color: #58665e;
+  font-size: 11px;
+  cursor: pointer;
+}
+.submission-file input {
+  max-width: 100%;
+  font-size: 10px;
+}
+.learning-submissions {
+  padding: 15px 0;
+  border-top: 1px solid var(--line);
+}
+.learning-submissions h3 {
+  margin: 0 0 8px;
+  font:
+    700 13px 'Manrope',
+    sans-serif;
+}
+.learning-submissions p,
+.learning-submitted,
+.learning-hint {
+  color: #68756d;
+  font-size: 11px;
+}
+.learning-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+}
+.student-learning-row {
+  padding: 20px 0;
+}
+.student-learning-row .primary-button {
+  width: fit-content;
+}
+.learning-page .academic-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 760px) {
+  .learning-wide,
+  .learning-checkbox {
+    grid-column: span 3;
+  }
+  .learning-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .learning-actions {
+    flex-wrap: wrap;
+  }
+}
+
 @keyframes arrive {
   from {
     opacity: 0;

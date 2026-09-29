@@ -891,7 +891,7 @@ If PowerShell blocks `npm.ps1` because of its execution policy, use `npm.cmd` in
   npm install
   ```
 
-2. Copy `.env.example` to `.env` and add the Firebase web-app configuration values. `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, and `VITE_FIREBASE_APP_ID` are required. The storage bucket and messaging sender ID are optional in this phase.
+2. Copy `.env.example` to `.env` and add the Firebase web-app configuration values. `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, and `VITE_FIREBASE_APP_ID` are required. `VITE_FIREBASE_STORAGE_BUCKET` is required for notes and assignment attachments; the messaging sender ID remains optional.
 
   ```powershell
   Copy-Item .env.example .env
@@ -921,10 +921,10 @@ If PowerShell blocks `npm.ps1` because of its execution policy, use `npm.cmd` in
 
 ### Firebase emulators
 
-The repository configures Auth and Firestore emulators on ports 9099 and 8080, with the Emulator UI on port 4000. In `.env`, set `VITE_USE_FIREBASE_EMULATORS=true` and keep the Firebase project configuration values populated. Start the emulators in a separate terminal:
+The repository configures Auth, Firestore, and Storage emulators on ports 9099, 8080, and 9199, with the Emulator UI on port 4000. In `.env`, set `VITE_USE_FIREBASE_EMULATORS=true` and keep the Firebase project configuration values populated. Start the emulators in a separate terminal:
 
 ```powershell
-npx --yes firebase-tools emulators:start --only auth,firestore
+npx --yes firebase-tools emulators:start --only auth,firestore,storage
 ```
 
 Create a test Auth account and its matching `users/{uid}` profile in the Emulator UI. Emulator data is local and should contain no real student information.
@@ -947,10 +947,18 @@ Sign in with an active administrator profile (`users/{uid}` with `role: "admin"`
 
 Phase 2 Firestore rules allow active administrators to read and write those academic collections. The `/users` collection remains client-write-disabled so users cannot grant themselves administrator access. Create the first admin login and profile through the Firebase Console or another trusted administrative process. All other collections remain denied by default. The rules grant project-wide admin access; campus-specific administrator scoping remains dependent on the single-campus versus multi-campus product decision.
 
-Run the Firestore Emulator rule suite with:
+Run the Firestore and Storage Emulator rule suites with:
 
 ```powershell
 npm run test:rules
 ```
 
 The suite verifies administrator access and denials for students, disabled administrators, unauthenticated clients, and client-side user-role changes. Emulator tests require a working Node.js/Firebase CLI environment.
+
+## 22. Phase 3 Notes and Assignments
+
+Teachers create drafts or publish notes and assignments only for active teaching assignments. Assignment publication requires a future due date, and teachers can close published assignments. Students see published content only for active enrollment scopes and can submit a written response and/or up to five attachments while submissions are enabled and before the due date.
+
+Uploads use private Firebase Storage paths. Each file must be a PDF, JPEG/PNG image, plain text, DOC, or DOCX file no larger than 10 MB. Storage rules check the user's active role, the relevant assigned/enrolled class scope, the content state, and (for student work) the assignment's submission window. Firestore access-index documents are updated atomically with administrator enrollment and teaching-assignment changes; clients cannot write those indexes.
+
+Run `npm run test:rules` to start both Firestore and Storage emulators and execute the permission tests. Start the Storage emulator alongside Firestore when testing uploads locally.

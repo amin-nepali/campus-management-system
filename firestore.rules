@@ -14,6 +14,58 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    function isActiveTeacher() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active';
+    }
+
+    function isActiveStudent() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active';
+    }
+
+    function isActiveParent() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parent'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active';
+    }
+
+    function hasTeacherAccess(data) {
+      let path = /databases/$(database)/documents/teachingAssignmentAccess/$(request.auth.uid + '--' + data.academicYearId + '--' + data.classId + '--' + data.sectionId + '--' + data.subjectId);
+      return exists(path)
+        && get(path).data.active == true
+        && get(path).data.teacherUid == request.auth.uid;
+    }
+
+    function hasStudentAccess(data) {
+      let path = /databases/$(database)/documents/studentClassAccess/$(request.auth.uid + '--' + data.academicYearId + '--' + data.classId + '--' + data.sectionId);
+      return exists(path)
+        && get(path).data.active == true
+        && get(path).data.studentUserId == request.auth.uid;
+    }
+
+    function hasStudentSubmissionAccess(data, studentId) {
+      let path = /databases/$(database)/documents/studentClassAccess/$(request.auth.uid + '--' + data.academicYearId + '--' + data.classId + '--' + data.sectionId);
+      return exists(path)
+        && get(path).data.active == true
+        && get(path).data.studentUserId == request.auth.uid
+        && get(path).data.studentId == studentId;
+    }
+
+    function validLearningAttachments(data) {
+      return data.attachmentPaths is list && data.attachmentPaths.size() <= 5;
+    }
+
+    function validAssignmentPublication(data) {
+      return data.status != 'published'
+        || (data.publishedAt is timestamp && data.dueAt is timestamp && data.dueAt > request.time);
+    }
+
     match /campuses/{recordId} {
       allow read, write: if isActiveAdmin();
     }
@@ -43,6 +95,113 @@ service cloud.firestore {
     }
     match /teachingAssignments/{recordId} {
       allow read, write: if isActiveAdmin();
+    }
+    match /teachingAssignmentAccess/{recordId} {
+      allow read: if isActiveAdmin() || (isActiveTeacher() && resource.data.teacherUid == request.auth.uid);
+      allow write: if isActiveAdmin();
+    }
+    match /studentClassAccess/{recordId} {
+      allow read: if isActiveAdmin() || ((isActiveStudent() || isActiveParent()) && resource.data.studentUserId == request.auth.uid);
+      allow write: if isActiveAdmin();
+    }
+
+    match /notes/{noteId} {
+      allow create: if isActiveTeacher()
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.teacherId == request.auth.uid
+        && hasTeacherAccess(request.resource.data)
+        && request.resource.data.status in ['draft', 'published']
+        && validLearningAttachments(request.resource.data)
+        && (request.resource.data.status != 'published' || request.resource.data.publishedAt is timestamp);
+      allow read: if isActiveAdmin()
+        || (isActiveTeacher() && resource.data.authorId == request.auth.uid && hasTeacherAccess(resource.data))
+        || (isActiveStudent() && resource.data.status == 'published' && hasStudentAccess(resource.data));
+      allow update: if isActiveTeacher()
+        && resource.data.authorId == request.auth.uid
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.teacherId == request.auth.uid
+        && hasTeacherAccess(request.resource.data)
+        && request.resource.data.status in ['draft', 'published', 'archived']
+        && validLearningAttachments(request.resource.data)
+        && (request.resource.data.status != 'published' || request.resource.data.publishedAt is timestamp);
+      allow delete: if isActiveAdmin() || (isActiveTeacher() && resource.data.authorId == request.auth.uid && resource.data.status == 'draft');
+    }
+
+    match /assignments/{assignmentId} {
+      allow create: if isActiveTeacher()
+        && request.resource.data.teacherId == request.auth.uid
+        && hasTeacherAccess(request.resource.data)
+        && request.resource.data.status in ['draft', 'published']
+        && request.resource.data.allowSubmissions is bool
+        && validLearningAttachments(request.resource.data)
+        && validAssignmentPublication(request.resource.data);
+      allow read: if isActiveAdmin()
+        || (isActiveTeacher() && resource.data.teacherId == request.auth.uid && hasTeacherAccess(resource.data))
+        || (isActiveStudent() && resource.data.status in ['published', 'closed'] && hasStudentAccess(resource.data));
+      allow update: if isActiveTeacher()
+        && resource.data.teacherId == request.auth.uid
+        && request.resource.data.teacherId == request.auth.uid
+        && hasTeacherAccess(request.resource.data)
+        && request.resource.data.status in ['draft', 'published', 'closed']
+        && request.resource.data.allowSubmissions is bool
+        && validLearningAttachments(request.resource.data)
+        && validAssignmentPublication(request.resource.data);
+      allow delete: if isActiveAdmin() || (isActiveTeacher() && resource.data.teacherId == request.auth.uid && resource.data.status == 'draft');
+    }
+
+    function canSubmitToAssignment(assignmentId, studentId, studentUserId) {
+      let assignmentPath = /databases/$(database)/documents/assignments/$(assignmentId);
+      return isActiveStudent()
+        && studentUserId == request.auth.uid
+        && exists(assignmentPath)
+        && get(assignmentPath).data.status == 'published'
+        && get(assignmentPath).data.allowSubmissions == true
+        && get(assignmentPath).data.dueAt is timestamp
+        && get(assignmentPath).data.dueAt > request.time
+        && hasStudentSubmissionAccess(get(assignmentPath).data, studentId);
+    }
+
+    match /assignmentSubmissions/{submissionId} {
+      allow create: if canSubmitToAssignment(request.resource.data.assignmentId, request.resource.data.studentId, request.resource.data.studentUserId)
+        && submissionId == request.resource.data.assignmentId + '--' + request.resource.data.studentId
+        && request.resource.data.status == 'submitted'
+        && request.resource.data.attachmentPaths is list
+        && request.resource.data.attachmentPaths.size() <= 5;
+      allow read: if isActiveAdmin()
+        || (isActiveStudent() && resource.data.studentUserId == request.auth.uid)
+        || (isActiveTeacher()
+          && exists(/databases/$(database)/documents/assignments/$(resource.data.assignmentId))
+          && get(/databases/$(database)/documents/assignments/$(resource.data.assignmentId)).data.teacherId == request.auth.uid
+          && hasTeacherAccess(get(/databases/$(database)/documents/assignments/$(resource.data.assignmentId)).data));
+      allow update: if canSubmitToAssignment(request.resource.data.assignmentId, request.resource.data.studentId, request.resource.data.studentUserId)
+        && submissionId == request.resource.data.assignmentId + '--' + request.resource.data.studentId
+        && resource.data.studentId == request.resource.data.studentId
+        && resource.data.assignmentId == request.resource.data.assignmentId
+        && resource.data.studentUserId == request.auth.uid
+        && request.resource.data.status == 'submitted'
+        && request.resource.data.attachmentPaths is list
+        && request.resource.data.attachmentPaths.size() <= 5;
+      allow delete: if isActiveAdmin();
+    }
+
+    match /attendanceSessions/{recordId} {
+      allow create: if isActiveTeacher() && request.resource.data.teacherId == request.auth.uid;
+      allow read: if isActiveAdmin() || (isActiveTeacher() && resource.data.teacherId == request.auth.uid);
+      allow update: if isActiveTeacher() && resource.data.teacherId == request.auth.uid && request.resource.data.teacherId == request.auth.uid;
+      allow delete: if isActiveAdmin();
+    }
+
+    match /attendanceRecords/{recordId} {
+      allow create: if isActiveTeacher() && request.resource.data.sessionId != null;
+      allow read: if isActiveAdmin() || (isActiveTeacher() && get(/databases/$(database)/documents/attendanceSessions/$(resource.data.sessionId)).data.teacherId == request.auth.uid) || (isActiveStudent() && get(/databases/$(database)/documents/students/$(resource.data.studentId)).data.userId == request.auth.uid);
+      allow update: if isActiveTeacher() && resource.data.sessionId == request.resource.data.sessionId && resource.data.studentId == request.resource.data.studentId;
+      allow delete: if isActiveAdmin();
+    }
+
+    match /auditLogs/{recordId} {
+      allow read: if isActiveAdmin() || isActiveTeacher();
+      allow create: if isActiveAdmin() || (isActiveTeacher() && request.resource.data.actorUserId == request.auth.uid);
+      allow update, delete: if isActiveAdmin();
     }
 
     match /{document=**} {
