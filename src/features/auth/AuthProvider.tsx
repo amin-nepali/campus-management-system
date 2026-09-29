@@ -4,7 +4,7 @@ import {
   signOut,
   type User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import {
   createContext,
   useContext,
@@ -29,6 +29,33 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+const trustedAdminEmails = new Set(['aminnepali987@gmail.com']);
+
+export function getBootstrapProfile(
+  firebaseUser: Pick<
+    FirebaseUser,
+    'uid' | 'email' | 'displayName' | 'phoneNumber' | 'photoURL'
+  >,
+): User | null {
+  const email = firebaseUser.email?.trim().toLowerCase();
+  if (!email || !trustedAdminEmails.has(email)) {
+    return null;
+  }
+
+  return {
+    id: firebaseUser.uid,
+    authUid: firebaseUser.uid,
+    role: 'admin',
+    campusIds: [],
+    displayName:
+      firebaseUser.displayName?.trim() || email.split('@')[0] || 'Administrator',
+    email,
+    phone: firebaseUser.phoneNumber ?? undefined,
+    photoUrl: firebaseUser.photoURL ?? undefined,
+    status: 'active',
+  };
+}
 
 function profileFromData(
   id: string,
@@ -96,29 +123,43 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       setLoading(true);
       try {
-        const profileSnapshot = await getDoc(
-          doc(db, 'users', firebaseUser.uid),
-        );
+        const profileRef = doc(db, 'users', firebaseUser.uid);
+        const profileSnapshot = await getDoc(profileRef);
+
         if (!profileSnapshot.exists()) {
+          const bootstrapProfile = getBootstrapProfile(firebaseUser);
+          if (!bootstrapProfile) {
+            setProfileError(
+              'Your account profile is not set up. Contact a campus administrator.',
+            );
+            return;
+          }
+
+          await setDoc(profileRef, {
+            role: bootstrapProfile.role,
+            displayName: bootstrapProfile.displayName,
+            email: bootstrapProfile.email,
+            campusIds: bootstrapProfile.campusIds,
+            phone: bootstrapProfile.phone,
+            photoUrl: bootstrapProfile.photoUrl,
+            status: bootstrapProfile.status,
+          });
+
+          setUser(bootstrapProfile);
+          return;
+        }
+
+        const profile = profileFromData(firebaseUser.uid, profileSnapshot.data());
+        if (!profile) {
           setProfileError(
-            'Your account profile is not set up. Contact a campus administrator.',
+            'Your account profile is incomplete. Contact a campus administrator.',
+          );
+        } else if (profile.status !== 'active') {
+          setProfileError(
+            'Your account is not active. Contact a campus administrator.',
           );
         } else {
-          const profile = profileFromData(
-            firebaseUser.uid,
-            profileSnapshot.data(),
-          );
-          if (!profile) {
-            setProfileError(
-              'Your account profile is incomplete. Contact a campus administrator.',
-            );
-          } else if (profile.status !== 'active') {
-            setProfileError(
-              'Your account is not active. Contact a campus administrator.',
-            );
-          } else {
-            setUser(profile);
-          }
+          setUser(profile);
         }
       } catch {
         setProfileError(
