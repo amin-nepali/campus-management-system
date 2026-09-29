@@ -881,6 +881,8 @@ Build the smallest trustworthy system that solves daily campus work. Correct per
 - Node.js 20.19+ or 22.12+
 - A Firebase project for local development, or the Firebase emulators
 
+If PowerShell blocks `npm.ps1` because of its execution policy, use `npm.cmd` in place of `npm` and `npx.cmd` in place of `npx` in the commands below.
+
 ### Install and configure
 
 1. Install dependencies from the project root:
