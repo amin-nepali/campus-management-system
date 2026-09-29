@@ -27,4 +27,16 @@ describe('role-aware navigation', () => {
     expect(parentPaths).toContain('/my-children');
     expect(teacherPaths).not.toContain('/my-children');
   });
+
+  it('exposes academic setup only in administrator navigation', () => {
+    const adminPaths = getNavigationForRole('admin').map((item) => item.path);
+    const studentPaths = getNavigationForRole('student').map(
+      (item) => item.path,
+    );
+    expect(adminPaths).toContain('/academic/campuses');
+    expect(adminPaths).toContain('/academic/enrollments');
+    expect(studentPaths.some((path) => path.startsWith('/academic'))).toBe(
+      false,
+    );
+  });
 });

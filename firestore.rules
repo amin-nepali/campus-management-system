@@ -2,9 +2,47 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isActiveAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active';
+    }
+
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if false;
+    }
+
+    match /campuses/{recordId} {
+      allow read, write: if isActiveAdmin();
+    }
+    match /academicYears/{recordId} {
+      allow read, write: if isActiveAdmin();
+    }
+    match /terms/{recordId} {
+      allow read, write: if isActiveAdmin();
+    }
+    match /classes/{recordId} {
+      allow read, write: if isActiveAdmin();
+    }
+    match /sections/{recordId} {
+      allow read, write: if isActiveAdmin();
+    }
+    match /subjects/{recordId} {
+      allow read, write: if isActiveAdmin();
+    }
+    match /students/{recordId} {
+      allow read, write: if isActiveAdmin();
+    }
+    match /teachers/{recordId} {
+      allow read, write: if isActiveAdmin();
+    }
+    match /enrollments/{recordId} {
+      allow read, write: if isActiveAdmin();
+    }
+    match /teachingAssignments/{recordId} {
+      allow read, write: if isActiveAdmin();
     }
 
     match /{document=**} {

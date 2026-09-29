@@ -12,6 +12,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
+    "test:rules": "npx --yes firebase-tools@14.22.0 emulators:exec --project demo-campus-management --only firestore \"npm run test:rules:runner\"",
+    "test:rules:runner": "vitest run --config vitest.rules.config.ts",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -19,9 +21,11 @@
     "lucide-react": "^0.468.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-router-dom": "^7.9.3"
+    "react-router-dom": "^7.9.3",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@eslint/js": "^9.36.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",

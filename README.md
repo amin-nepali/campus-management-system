@@ -940,3 +940,17 @@ npm run build
 ```
 
 The initial Firestore rules allow an authenticated user to read only their own profile and deny all client writes and other document access. Role-based route checks improve the interface but are not a substitute for backend authorization. Domain permissions and emulator rule tests must be added before connecting campus data.
+
+## 21. Phase 2 Academic Setup
+
+Sign in with an active administrator profile (`users/{uid}` with `role: "admin"` and `status: "active"`) to open **Academic Setup**. The workspace manages campuses, academic years, terms, classes, sections, subjects, students, teachers, enrollments, and teaching assignments. Student and teacher records link to existing Firebase Authentication UIDs; account invitations are not part of this phase.
+
+Phase 2 Firestore rules allow active administrators to read and write those academic collections. The `/users` collection remains client-write-disabled so users cannot grant themselves administrator access. Create the first admin login and profile through the Firebase Console or another trusted administrative process. All other collections remain denied by default. The rules grant project-wide admin access; campus-specific administrator scoping remains dependent on the single-campus versus multi-campus product decision.
+
+Run the Firestore Emulator rule suite with:
+
+```powershell
+npm run test:rules
+```
+
+The suite verifies administrator access and denials for students, disabled administrators, unauthenticated clients, and client-side user-role changes. Emulator tests require a working Node.js/Firebase CLI environment.
