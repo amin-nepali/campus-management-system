@@ -873,3 +873,68 @@ Record decisions in this README or in `docs/decisions.md`:
 ## 19. Project Principle
 
 Build the smallest trustworthy system that solves daily campus work. Correct permissions, understandable workflows, reliable records, and clear documentation matter more than a large feature list.
+
+## 20. Phase 1 Local Setup
+
+### Requirements
+
+- Node.js 20.19+ or 22.12+
+- A Firebase project for local development, or the Firebase emulators
+
+### Install and configure
+
+1. Install dependencies from the project root:
+
+  ```powershell
+  npm install
+  ```
+
+2. Copy `.env.example` to `.env` and add the Firebase web-app configuration values. `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, and `VITE_FIREBASE_APP_ID` are required. The storage bucket and messaging sender ID are optional in this phase.
+
+  ```powershell
+  Copy-Item .env.example .env
+  ```
+
+  Firebase web configuration is delivered to the browser; do not put service-account credentials, private keys, or other server secrets in `VITE_*` variables.
+
+3. In the Firebase console, enable Email/Password under Authentication and create a Firestore database. Create each login account with Firebase Authentication, then create a matching `users/{uid}` document with fields similar to:
+
+  ```json
+  {
+    "role": "student",
+    "campusIds": [],
+    "displayName": "Example User",
+    "email": "user@example.invalid",
+    "status": "active"
+  }
+  ```
+
+  Use the Auth user's UID as the document ID. Change `role` to `student`, `teacher`, `parent`, or `admin` as appropriate. Provision profiles through the Firebase console or a trusted administrative process; client-side profile writes are denied by the Phase 1 Firestore rules.
+
+4. Start the development server:
+
+  ```powershell
+  npm run dev
+  ```
+
+### Firebase emulators
+
+The repository configures Auth and Firestore emulators on ports 9099 and 8080, with the Emulator UI on port 4000. In `.env`, set `VITE_USE_FIREBASE_EMULATORS=true` and keep the Firebase project configuration values populated. Start the emulators in a separate terminal:
+
+```powershell
+npx --yes firebase-tools emulators:start --only auth,firestore
+```
+
+Create a test Auth account and its matching `users/{uid}` profile in the Emulator UI. Emulator data is local and should contain no real student information.
+
+### Checks
+
+```powershell
+npm run typecheck
+npm test
+npm run lint
+npm run format:check
+npm run build
+```
+
+The initial Firestore rules allow an authenticated user to read only their own profile and deny all client writes and other document access. Role-based route checks improve the interface but are not a substitute for backend authorization. Domain permissions and emulator rule tests must be added before connecting campus data.

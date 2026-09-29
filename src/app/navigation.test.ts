@@ -11,13 +11,17 @@ describe('role-aware navigation', () => {
   });
 
   it('does not expose administrator sections to students', () => {
-    const studentPaths = getNavigationForRole('student').map((item) => item.path);
+    const studentPaths = getNavigationForRole('student').map(
+      (item) => item.path,
+    );
     expect(studentPaths).not.toContain('/users');
     expect(studentPaths).not.toContain('/settings');
   });
 
   it('keeps teacher navigation distinct from parent navigation', () => {
-    const teacherPaths = getNavigationForRole('teacher').map((item) => item.path);
+    const teacherPaths = getNavigationForRole('teacher').map(
+      (item) => item.path,
+    );
     const parentPaths = getNavigationForRole('parent').map((item) => item.path);
     expect(teacherPaths).toContain('/my-classes');
     expect(parentPaths).toContain('/my-children');

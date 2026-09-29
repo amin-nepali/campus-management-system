@@ -21,8 +21,12 @@ export function AppShell() {
     <div className="app-frame">
       <aside className="sidebar">
         <NavLink className="brand" to="/dashboard">
-          <span className="brand-mark"><BookOpen size={19} strokeWidth={2.2} /></span>
-          <span>Campus<span className="brand-sub">MANAGEMENT SYSTEM</span></span>
+          <span className="brand-mark">
+            <BookOpen size={19} strokeWidth={2.2} />
+          </span>
+          <span>
+            Campus<span className="brand-sub">MANAGEMENT SYSTEM</span>
+          </span>
         </NavLink>
         <div className="nav-heading">WORKSPACE</div>
         <nav className="primary-nav" aria-label="Main navigation">
@@ -31,9 +35,13 @@ export function AppShell() {
               key={item.path}
               to={item.path}
               end={item.path === '/dashboard'}
-              className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+              className={({ isActive }) =>
+                `nav-link${isActive ? ' active' : ''}`
+              }
             >
-              <span className="nav-index">{String(index + 1).padStart(2, '0')}</span>
+              <span className="nav-index">
+                {String(index + 1).padStart(2, '0')}
+              </span>
               {item.label}
             </NavLink>
           ))}
@@ -41,7 +49,10 @@ export function AppShell() {
         <div className="sidebar-bottom">
           <div className="profile-summary">
             <span className="avatar">{initials || 'U'}</span>
-            <span className="profile-copy"><strong>{user.displayName}</strong><span>{user.role}</span></span>
+            <span className="profile-copy">
+              <strong>{user.displayName}</strong>
+              <span>{user.role}</span>
+            </span>
           </div>
           <button className="logout-button" onClick={() => void signOutUser()}>
             <LogOut size={16} aria-hidden="true" /> Sign out
@@ -56,7 +67,11 @@ export function AppShell() {
         <div className="mobile-nav-wrap">
           <nav className="mobile-nav" aria-label="Main navigation">
             {navigation.map((item) => (
-              <NavLink key={item.path} to={item.path} end={item.path === '/dashboard'}>
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.path === '/dashboard'}
+              >
                 {item.label}
               </NavLink>
             ))}

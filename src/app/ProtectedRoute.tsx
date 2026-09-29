@@ -5,7 +5,11 @@ export function ProtectedRoute() {
   const { authUser, loading, profileError, signOutUser, user } = useAuth();
 
   if (loading) {
-    return <main className="center-state" aria-label="Loading session">Loading session...</main>;
+    return (
+      <main className="center-state" aria-label="Loading session">
+        Loading session...
+      </main>
+    );
   }
   if (!authUser) {
     return <Navigate to="/login" replace />;
@@ -17,7 +21,10 @@ export function ProtectedRoute() {
           <p className="eyebrow">ACCOUNT ACCESS</p>
           <h1>We couldn't verify your campus profile.</h1>
           <p>{profileError ?? 'Contact your campus administrator for help.'}</p>
-          <button className="secondary-button" onClick={() => void signOutUser()}>
+          <button
+            className="secondary-button"
+            onClick={() => void signOutUser()}
+          >
             Sign out
           </button>
         </div>

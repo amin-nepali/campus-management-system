@@ -12,7 +12,11 @@ import {
   useState,
   type PropsWithChildren,
 } from 'react';
-import { firebaseAuth, firebaseConfigError, firestoreDb } from '../../lib/firebase';
+import {
+  firebaseAuth,
+  firebaseConfigError,
+  firestoreDb,
+} from '../../lib/firebase';
 import { isUserRole, type User } from '../../types/user';
 
 interface AuthContextValue {
@@ -53,12 +57,15 @@ function profileFromData(
     authUid: id,
     role,
     campusIds: Array.isArray(campusIds)
-      ? campusIds.filter((campusId): campusId is string => typeof campusId === 'string')
+      ? campusIds.filter(
+          (campusId): campusId is string => typeof campusId === 'string',
+        )
       : [],
     displayName,
     email,
     phone: typeof data['phone'] === 'string' ? data['phone'] : undefined,
-    photoUrl: typeof data['photoUrl'] === 'string' ? data['photoUrl'] : undefined,
+    photoUrl:
+      typeof data['photoUrl'] === 'string' ? data['photoUrl'] : undefined,
     status,
   };
 }
@@ -93,22 +100,30 @@ export function AuthProvider({ children }: PropsWithChildren) {
           doc(db, 'users', firebaseUser.uid),
         );
         if (!profileSnapshot.exists()) {
-          setProfileError('Your account profile is not set up. Contact a campus administrator.');
+          setProfileError(
+            'Your account profile is not set up. Contact a campus administrator.',
+          );
         } else {
           const profile = profileFromData(
             firebaseUser.uid,
             profileSnapshot.data(),
           );
           if (!profile) {
-            setProfileError('Your account profile is incomplete. Contact a campus administrator.');
+            setProfileError(
+              'Your account profile is incomplete. Contact a campus administrator.',
+            );
           } else if (profile.status !== 'active') {
-            setProfileError('Your account is not active. Contact a campus administrator.');
+            setProfileError(
+              'Your account is not active. Contact a campus administrator.',
+            );
           } else {
             setUser(profile);
           }
         }
       } catch {
-        setProfileError('Your account profile could not be loaded. Please try again.');
+        setProfileError(
+          'Your account profile could not be loaded. Please try again.',
+        );
       } finally {
         setLoading(false);
       }
@@ -117,7 +132,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   async function signIn(email: string, password: string) {
     if (!firebaseAuth) {
-      throw new Error(firebaseConfigError ?? 'Firebase Authentication is unavailable.');
+      throw new Error(
+        firebaseConfigError ?? 'Firebase Authentication is unavailable.',
+      );
     }
     await signInWithEmailAndPassword(firebaseAuth, email, password);
   }
