@@ -9,6 +9,10 @@ import {
   where,
 } from 'firebase/firestore';
 import { firestoreDb } from '../../lib/firebase';
+import type {
+  StudentClassAccess,
+  TeachingAccess,
+} from '../learning-materials/schema';
 import {
   attendanceSchemas,
   type AttendanceAuditAction,
@@ -25,12 +29,43 @@ function database() {
   return firestoreDb;
 }
 
-export async function listAttendanceSessions(): Promise<AttendanceSession[]> {
-  const snapshot = await getDocs(collection(database(), 'attendanceSessions'));
+export async function listAttendanceSessions(
+  teacherId?: string,
+): Promise<AttendanceSession[]> {
+  const sessions = collection(database(), 'attendanceSessions');
+  const snapshot = teacherId
+    ? await getDocs(query(sessions, where('teacherId', '==', teacherId)))
+    : await getDocs(sessions);
   return snapshot.docs.map((entry) => ({
     ...(entry.data() as Omit<AttendanceSession, 'id'>),
     id: entry.id,
   }));
+}
+
+export async function listAttendanceRoster(
+  scopes: TeachingAccess[],
+): Promise<StudentClassAccess[]> {
+  const roster = new Map<string, StudentClassAccess>();
+  await Promise.all(
+    scopes.map(async (scope) => {
+      const snapshot = await getDocs(
+        query(
+          collection(database(), 'studentClassAccess'),
+          where('academicYearId', '==', scope.academicYearId),
+          where('classId', '==', scope.classId),
+          where('sectionId', '==', scope.sectionId),
+          where('active', '==', true),
+        ),
+      );
+      for (const entry of snapshot.docs) {
+        roster.set(entry.id, {
+          ...entry.data(),
+          id: entry.id,
+        } as StudentClassAccess);
+      }
+    }),
+  );
+  return [...roster.values()];
 }
 
 export async function createAttendanceSession(

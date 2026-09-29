@@ -1,6 +1,5 @@
 import {
   CalendarDays,
-  CheckCircle2,
   RefreshCw,
   Save,
 } from 'lucide-react';
@@ -11,11 +10,16 @@ import {
   useState,
   type FormEvent,
 } from 'react';
-import { listAcademicRecords } from '../academic/repository';
 import { useAuth } from '../auth/AuthProvider';
+import { listTeacherAccess } from '../learning-materials/repository';
+import type {
+  StudentClassAccess,
+  TeachingAccess,
+} from '../learning-materials/schema';
 import {
   appendAuditLog,
   createAttendanceSession,
+  listAttendanceRoster,
   listAttendanceRecords,
   listAttendanceSessions,
   saveAttendanceRecord,
@@ -30,62 +34,56 @@ import {
 } from './schema';
 
 interface AttendanceFormState {
-  campusId: string;
-  academicYearId: string;
-  classId: string;
-  section: string;
-  subjectId: string;
-  teacherId: string;
+  scopeId: string;
   date: string;
   periodLabel: string;
-  status: 'draft' | 'submitted' | 'corrected';
-  createdBy: string;
-  notes: string;
 }
 
-const defaultForm = (userId: string): AttendanceFormState => ({
-  campusId: '',
-  academicYearId: '',
-  classId: '',
-  section: 'A',
-  subjectId: '',
-  teacherId: userId,
+const defaultForm = (): AttendanceFormState => ({
+  scopeId: '',
   date: new Date().toISOString().slice(0, 10),
   periodLabel: 'Period 1',
-  status: 'draft',
-  createdBy: userId,
-  notes: '',
 });
 
 export function AttendancePage() {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
-  const [classes, setClasses] = useState<Array<{ id: string; name: string }>>([]);
-  const [subjects, setSubjects] = useState<Array<{ id: string; name: string }>>([]);
-  const [students, setStudents] = useState<Array<{ id: string; fullName: string; userId: string }>>([]);
-  const [form, setForm] = useState<AttendanceFormState>(() =>
-    user ? defaultForm(user.id) : defaultForm(''),
-  );
+  const [teachingAccess, setTeachingAccess] = useState<TeachingAccess[]>([]);
+  const [students, setStudents] = useState<StudentClassAccess[]>([]);
+  const [form, setForm] = useState<AttendanceFormState>(defaultForm);
   const [selectedSessionId, setSelectedSessionId] = useState<string>('');
   const [records, setRecords] = useState<Record<string, AttendanceRecord>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isTeacher = user?.role === 'teacher' || user?.role === 'admin';
+  const isTeacher = user?.role === 'teacher';
+  const isAdmin = user?.role === 'admin';
 
   const visibleSessions = useMemo(
     () =>
       sessions.filter(
         (session) =>
-          user?.role === 'admin' || session.teacherId === user?.id,
+              isAdmin || session.teacherId === user?.id,
       ),
-    [sessions, user],
+            [isAdmin, sessions, user],
   );
 
   const selectedSession = visibleSessions.find(
     (session) => session.id === selectedSessionId,
   );
+
+  const selectedScope = teachingAccess.find(
+    (scope) => scope.id === form.scopeId,
+  );
+  const sessionStudents = selectedSession
+    ? students.filter(
+        (student) =>
+          student.academicYearId === selectedSession.academicYearId &&
+          student.classId === selectedSession.classId &&
+          student.sectionId === selectedSession.sectionId,
+      )
+    : [];
 
   const loadData = useCallback(async () => {
     if (!user) {
@@ -96,30 +94,20 @@ export function AttendancePage() {
     setError(null);
 
     try {
-      const [classList, subjectList, studentList, sessionList] = await Promise.all([
-        listAcademicRecords('classes'),
-        listAcademicRecords('subjects'),
-        listAcademicRecords('students'),
-        listAttendanceSessions(),
+      const access = isTeacher ? await listTeacherAccess(user.id) : [];
+      const [roster, sessionList] = await Promise.all([
+        isTeacher ? listAttendanceRoster(access) : Promise.resolve([]),
+        isTeacher || isAdmin
+          ? listAttendanceSessions(isTeacher ? user.id : undefined)
+          : Promise.resolve([]),
       ]);
 
-      setClasses(
-        classList.map((entry) => ({ id: entry.id, name: String(entry.name ?? '') })),
-      );
-      setSubjects(
-        subjectList.map((entry) => ({ id: entry.id, name: String(entry.name ?? '') })),
-      );
-      setStudents(
-        studentList.map((entry) => ({
-          id: entry.id,
-          fullName: String(entry.fullName ?? ''),
-          userId: String(entry.userId ?? ''),
-        })),
-      );
+      setTeachingAccess(access);
+      setStudents(roster);
       setSessions(sessionList);
 
       const nextVisible = sessionList.filter(
-        (session) => user.role === 'admin' || session.teacherId === user.id,
+        (session) => isAdmin || session.teacherId === user.id,
       );
       setSelectedSessionId((current) => {
         if (current && nextVisible.some((item) => item.id === current)) {
@@ -134,11 +122,11 @@ export function AttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [isAdmin, isTeacher, user]);
 
   useEffect(() => {
     if (user) {
-      setForm(defaultForm(user.id));
+      setForm(defaultForm());
       void loadData();
     }
   }, [loadData, user]);
@@ -169,10 +157,25 @@ export function AttendancePage() {
     setSaving(true);
     setError(null);
 
+    const scope = teachingAccess.find((entry) => entry.id === form.scopeId);
+    if (!scope) {
+      setError('Select one of your assigned class and subject scopes.');
+      setSaving(false);
+      return;
+    }
+
     const payload = {
-      ...form,
+      campusId: scope.campusId,
+      academicYearId: scope.academicYearId,
+      classId: scope.classId,
+      sectionId: scope.sectionId,
+      sectionName: scope.sectionName ?? scope.sectionId,
+      subjectId: scope.subjectId,
       createdBy: user.id,
       teacherId: user.id,
+      date: form.date,
+      periodLabel: form.periodLabel,
+      status: 'draft' as const,
     };
 
     const validation = attendanceSchemas.sessions.safeParse(payload);
@@ -190,10 +193,10 @@ export function AttendancePage() {
         action: 'create',
         entityType: 'attendanceSession',
         entityId: createdId,
-        summary: `Created attendance session for ${validation.data.classId} / ${validation.data.section}.`,
+        summary: `Created attendance session for ${validation.data.classId} / ${validation.data.sectionName}.`,
       });
       setSelectedSessionId(createdId);
-      setForm(defaultForm(user.id));
+      setForm(defaultForm());
       await loadData();
     } catch {
       setError('Could not create the attendance session. Check the required class and subject links.');
@@ -236,7 +239,6 @@ export function AttendancePage() {
           summary: `Corrected attendance for student ${studentId} from ${existing.status} to ${status}.`,
         });
         await updateAttendanceSession(selectedSession.id, {
-          ...selectedSession,
           status: 'corrected',
           correctedAt: new Date().toISOString(),
         });
@@ -254,16 +256,21 @@ export function AttendancePage() {
       return;
     }
 
-    const nextStatus = selectedSession.status === 'submitted' ? 'corrected' : 'submitted';
+    const nextStatus = selectedSession.status === 'draft' ? 'submitted' : 'corrected';
 
     try {
       await updateAttendanceSession(selectedSession.id, {
-        ...selectedSession,
         status: nextStatus,
         submittedAt:
-          nextStatus === 'submitted' ? new Date().toISOString() : selectedSession.submittedAt,
+          nextStatus === 'submitted'
+            ? new Date().toISOString()
+            : selectedSession.submittedAt,
+        submittedBy:
+          nextStatus === 'submitted' ? user.id : selectedSession.submittedBy,
         correctedAt:
-          nextStatus === 'corrected' ? new Date().toISOString() : selectedSession.correctedAt,
+          nextStatus === 'corrected'
+            ? new Date().toISOString()
+            : selectedSession.correctedAt,
       });
 
       await appendAuditLog({
@@ -310,61 +317,78 @@ export function AttendancePage() {
             </div>
             <div className="academic-fields">
               <div className="academic-field">
-                <label htmlFor="attendance-campus">Campus</label>
-                <select id="attendance-campus" value={form.campusId} onChange={(event) => setForm((current) => ({ ...current, campusId: event.target.value }))}>
-                  <option value="">Select campus</option>
-                  <option value="campus-1">Sukuna Multiple Campus</option>
-                </select>
-              </div>
-              <div className="academic-field">
-                <label htmlFor="attendance-year">Academic year</label>
-                <input id="attendance-year" value={form.academicYearId} onChange={(event) => setForm((current) => ({ ...current, academicYearId: event.target.value }))} placeholder="2026-2027" />
-              </div>
-              <div className="academic-field">
-                <label htmlFor="attendance-class">Class</label>
-                <select id="attendance-class" value={form.classId} onChange={(event) => setForm((current) => ({ ...current, classId: event.target.value }))}>
-                  <option value="">Select class</option>
-                  {classes.map((entry) => (
-                    <option value={entry.id} key={entry.id}>{entry.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="academic-field">
-                <label htmlFor="attendance-section">Section</label>
-                <input id="attendance-section" value={form.section} onChange={(event) => setForm((current) => ({ ...current, section: event.target.value }))} />
-              </div>
-              <div className="academic-field">
-                <label htmlFor="attendance-subject">Subject</label>
-                <select id="attendance-subject" value={form.subjectId} onChange={(event) => setForm((current) => ({ ...current, subjectId: event.target.value }))}>
-                  <option value="">Select subject</option>
-                  {subjects.map((entry) => (
-                    <option value={entry.id} key={entry.id}>{entry.name}</option>
+                <label htmlFor="attendance-scope">Assigned class and subject</label>
+                <select
+                  id="attendance-scope"
+                  value={form.scopeId}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      scopeId: event.target.value,
+                    }))
+                  }
+                  required
+                >
+                  <option value="">Select assigned scope</option>
+                  {teachingAccess.map((scope) => (
+                    <option value={scope.id} key={scope.id}>
+                      {scope.classId} · {scope.sectionName ?? scope.sectionId} ·{' '}
+                      {scope.subjectId}
+                    </option>
                   ))}
                 </select>
               </div>
               <div className="academic-field">
                 <label htmlFor="attendance-date">Date</label>
-                <input id="attendance-date" type="date" value={form.date} onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} />
+                <input
+                  id="attendance-date"
+                  type="date"
+                  value={form.date}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, date: event.target.value }))
+                  }
+                />
               </div>
               <div className="academic-field">
                 <label htmlFor="attendance-period">Period</label>
-                <input id="attendance-period" value={form.periodLabel} onChange={(event) => setForm((current) => ({ ...current, periodLabel: event.target.value }))} />
+                <input
+                  id="attendance-period"
+                  value={form.periodLabel}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      periodLabel: event.target.value,
+                    }))
+                  }
+                />
               </div>
             </div>
             {error && <p className="academic-error" role="alert">{error}</p>}
             <div className="academic-form-actions">
-              <button className="primary-button academic-submit" type="submit" disabled={saving}>
+              <button
+                className="primary-button academic-submit"
+                type="submit"
+                disabled={saving || !selectedScope}
+              >
                 {saving ? <RefreshCw size={16} className="spin" /> : <CalendarDays size={16} />}
                 {saving ? 'Saving...' : 'Create session'}
               </button>
             </div>
           </form>
 
+          {teachingAccess.length === 0 && !loading && (
+            <p className="academic-state">
+              No active teaching assignments are linked to this account.
+            </p>
+          )}
+
           {visibleSessions.length > 0 && selectedSession && (
             <div className="academic-list-heading" style={{ marginTop: '2rem' }}>
               <div>
                 <h2>Session roll</h2>
-                <span>{selectedSession.classId} · {selectedSession.section}</span>
+                <span>
+                  {selectedSession.classId} · {selectedSession.sectionName}
+                </span>
               </div>
               <button className="text-command" type="button" onClick={handleSubmitSession}>
                 <Save size={15} /> {selectedSession.status === 'submitted' ? 'Mark corrected' : 'Submit session'}
@@ -376,7 +400,8 @@ export function AttendancePage() {
             <div className="academic-list" style={{ marginTop: '1rem' }}>
               {visibleSessions.map((session) => (
                 <button key={session.id} type="button" className="text-command" onClick={() => setSelectedSessionId(session.id)}>
-                  {session.date} · {session.classId} · {session.section} · {session.status}
+                  {session.date} · {session.classId} · {session.sectionName} ·{' '}
+                  {session.status}
                 </button>
               ))}
             </div>
@@ -392,14 +417,23 @@ export function AttendancePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {students.map((student) => {
-                    const record = records[student.id];
+                  {sessionStudents.map((student) => {
+                    const record = records[student.studentId];
                     const value = record?.status ?? 'present';
                     return (
-                      <tr key={student.id}>
-                        <td>{student.fullName}</td>
+                      <tr key={student.studentId}>
+                        <td>{student.studentName || student.studentId}</td>
                         <td>
-                          <select value={value} onChange={(event) => void handleStatusChange(student.id, event.target.value as AttendanceStatus)}>
+                          <select
+                            value={value}
+                            aria-label={`Attendance status for ${student.studentName || student.studentId}`}
+                            onChange={(event) =>
+                              void handleStatusChange(
+                                student.studentId,
+                                event.target.value as AttendanceStatus,
+                              )
+                            }
+                          >
                             {attendanceStatuses.map((status) => (
                               <option value={status} key={status}>{status}</option>
                             ))}
@@ -442,7 +476,7 @@ export function AttendancePage() {
         </div>
       )}
 
-      {loading && <p className="page-lede"><CheckCircle2 size={15} /> Loading attendance data...</p>}
+      {loading && <p className="page-lede">Loading attendance data...</p>}
     </section>
   );
 }
