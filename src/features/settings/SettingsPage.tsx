@@ -285,7 +285,7 @@ export function SettingsPage() {
               {error && (
                 <p className="academic-error" role="alert">
                   {error}
-                )
+                </p>
               )}
 
               <div className="academic-form-actions">
