@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { profileFromData } from './AuthProvider';
+import { profileFromData } from './profileUtils';
 
 describe('Firestore profile parsing', () => {
   it('accepts a provisioned active administrator profile', () => {
