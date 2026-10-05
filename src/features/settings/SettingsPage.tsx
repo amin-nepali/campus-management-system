@@ -4,9 +4,8 @@ import {
   useState,
   type FormEvent,
 } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
-  CalendarDays,
   Save,
   Trash2,
   User as LucideUser,
@@ -57,7 +56,6 @@ function inputValues(user: User | null): SettingsFormValues {
 
 export function SettingsPage() {
   const { user, updateUserProfile } = useAuth();
-  const navigate = useNavigate();
   const [values, setValues] = useState<SettingsFormValues>(() =>
     user ? inputValues(user) : blankValues()
   );
@@ -122,7 +120,7 @@ export function SettingsPage() {
           if (submitButton) submitButton.textContent = originalText || 'Save changes';
         }, 1500);
       }
-    } catch (caught) {
+    } catch {
       setError(
         'Could not save your settings. Please try again.'
       );
@@ -147,7 +145,7 @@ export function SettingsPage() {
       // For now, we'll just show a message
       setLoading(false);
       alert('Account deletion would be implemented here. For now, please contact support.');
-    } catch (err) {
+    } catch {
       setError('Could not delete account. Please try again.');
       setLoading(false);
     }
@@ -208,7 +206,7 @@ export function SettingsPage() {
                   <input
                     id="settings-display-name"
                     type="text"
-                    defaultValue={values.displayName}
+                    defaultValue={values['displayName']}
                     onChange={(event) =>
                       setValues((current) => ({
                         ...current,
@@ -217,9 +215,9 @@ export function SettingsPage() {
                     }
                     required
                   />
-                  {fieldErrors.displayName && (
+                  {fieldErrors['displayName'] && (
                     <span className="field-error" role="alert">
-                      {fieldErrors.displayName}
+                      {fieldErrors['displayName']}
                     </span>
                   )}
                 </div>
@@ -229,7 +227,7 @@ export function SettingsPage() {
                   <input
                     id="settings-email"
                     type="email"
-                    defaultValue={values.email}
+                    defaultValue={values['email']}
                     onChange={(event) =>
                       setValues((current) => ({
                         ...current,
@@ -238,9 +236,9 @@ export function SettingsPage() {
                     }
                     required
                   />
-                  {fieldErrors.email && (
+                  {fieldErrors['email'] && (
                     <span className="field-error" role="alert">
-                      {fieldErrors.email}
+                      {fieldErrors['email']}
                     </span>
                   )}
                 </div>
@@ -265,7 +263,7 @@ export function SettingsPage() {
                   <input
                     id="settings-photo-url"
                     type="text"
-                    defaultValue={values.photoUrl ?? ''}
+                    defaultValue={values['photoUrl'] ?? ''}
                     onChange={(event) =>
                       setValues((current) => ({
                         ...current,
@@ -274,9 +272,9 @@ export function SettingsPage() {
                     }
                     placeholder="https://example.com/photo.jpg"
                   />
-                  {fieldErrors.photoUrl && (
+                  {fieldErrors['photoUrl'] && (
                     <span className="field-error" role="alert">
-                      {fieldErrors.photoUrl}
+                      {fieldErrors['photoUrl']}
                     </span>
                   )}
                 </div>
