@@ -7,6 +7,9 @@ import { AttendancePage } from '../features/attendance/AttendancePage';
 import { LearningMaterialsPage } from '../features/learning-materials/LearningMaterialsPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { RequireAdmin } from './RequireAdmin';
+import { RoutinePage } from '../features/routine/RoutinePage';
+import { NoticesPage } from '../features/notices/NoticesPage';
+import { AttendanceReportsPage } from '../features/reports/AttendanceReportsPage';
 
 export function App() {
   return (
@@ -17,8 +20,11 @@ export function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="attendance" element={<AttendancePage />} />
+          <Route path="attendance-reports" element={<AttendanceReportsPage />} />
           <Route path="notes" element={<LearningMaterialsPage />} />
           <Route path="assignments" element={<LearningMaterialsPage />} />
+          <Route path="routine" element={<RoutinePage />} />
+          <Route path="notices" element={<NoticesPage />} />
           <Route element={<RequireAdmin />}>
             <Route
               path="academic"

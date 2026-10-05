@@ -19,21 +19,21 @@ The first release should be a focused campus operations system, not a general so
 
 ### MVP features
 
-1. Authentication and role-based access
-2. Student, teacher, parent, and administrator profiles
-3. Campus, academic year, term, class, section, and subject management
-4. Student enrollment in a class or section
-5. Class routine and timetable
-6. Teacher attendance entry
-7. Student attendance history
-8. Notes and study-material publishing
-9. Assignments with due dates and submission status
-10. Campus and class notices
-11. Fee records and payment-status tracking
-12. Parent notifications
-13. Basic dashboards for each role
-14. Search, filtering, and pagination where data can grow
-15. Audit history for sensitive administrative actions
+1. Authentication and role-based access ✅
+2. Student, teacher, parent, and administrator profiles ✅
+3. Campus, academic year, term, class, section, and subject management ✅
+4. Student enrollment in a class or section ✅
+5. Class routine and timetable ✅
+6. Teacher attendance entry ✅
+7. Student attendance history ✅
+8. Notes and study-material publishing ✅
+9. Assignments with due dates and submission status ✅
+10. Campus and class notices ✅
+11. Fee records and payment-status tracking ⏳
+12. Parent notifications ⏳
+13. Basic dashboards for each role ✅
+14. Search, filtering, and pagination where data can grow ✅
+15. Audit history for sensitive administrative actions ✅
 
 ### Explicitly out of scope for the MVP
 
@@ -195,55 +195,55 @@ Sensitive administrator actions should require a confirmation step and should cr
 
 ### Student navigation
 
-- Dashboard
-- Routine
-- Attendance
-- Notes
-- Assignments
-- Notices
-- Fees
-- Profile
+- Dashboard ✅
+- Routine ✅
+- Attendance ✅
+- Notes ✅
+- Assignments ✅
+- Notices ✅
+- Fees ⏳
+- Profile ✅
 
 ### Teacher navigation
 
-- Dashboard
-- My Classes
-- Attendance
-- Notes
-- Assignments
-- Notices
-- Students
-- Profile
+- Dashboard ✅
+- My Classes ✅
+- Attendance ✅
+- Notes ✅
+- Assignments ✅
+- Notices ✅
+- Students ✅
+- Profile ✅
 
 ### Parent navigation
 
-- Dashboard
-- My Children
-- Attendance
-- Routine
-- Assignments
-- Notices
-- Fees
-- Notifications
-- Profile
+- Dashboard ✅
+- My Children ✅
+- Attendance ✅
+- Routine ✅
+- Assignments ✅
+- Notices ✅
+- Fees ⏳
+- Notifications ⏳
+- Profile ✅
 
 ### Administrator navigation
 
-- Dashboard
-- Users
-- Students
-- Teachers
-- Parents
-- Academic Setup
-- Classes and Sections
-- Subjects
-- Routine
-- Attendance Reports
-- Notes and Assignments
-- Notices
-- Fees and Payments
-- Audit Log
-- Settings
+- Dashboard ✅
+- Users ✅
+- Students ✅
+- Teachers ✅
+- Parents ✅
+- Academic Setup ✅
+- Classes and Sections ✅
+- Subjects ✅
+- Routine ✅
+- Attendance Reports ✅
+- Notes and Assignments ✅
+- Notices ✅
+- Fees and Payments ⏳
+- Audit Log ✅
+- Settings ✅
 
 ## 7. Firestore Data Model
 
