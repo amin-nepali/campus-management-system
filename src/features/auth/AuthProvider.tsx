@@ -4,7 +4,7 @@ import {
   signOut,
   type User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import {
   createContext,
   useContext,
@@ -27,6 +27,7 @@ interface AuthContextValue {
   profileError: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signOutUser: () => Promise<void>;
+  updateUserProfile: (updates: Partial<Omit<User, 'id' | 'authUid' | 'campusIds' | 'role' | 'status'>>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -108,9 +109,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
     await signOut(firebaseAuth);
   }
 
+  async function updateUserProfile(updates: Partial<Omit<User, 'id' | 'authUid' | 'campusIds' | 'role' | 'status'>>) {
+    if (!firebaseAuth || !firestoreDb) {
+      throw new Error('Firestore is not available.');
+    }
+    const uid = authUser?.uid ?? user?.authUid;
+    if (!uid) {
+      throw new Error('No authenticated user.');
+    }
+    const userRef = doc(firestoreDb, 'users', uid);
+    await updateDoc(userRef, updates);
+    // Update local state
+    setUser(prev => prev ? { ...prev, ...updates } : null);
+  }
+
   return (
     <AuthContext.Provider
-      value={{ authUser, user, loading, profileError, signIn, signOutUser }}
+      value={{ authUser, user, loading, profileError, signIn, signOutUser, updateUserProfile }}
     >
       {children}
     </AuthContext.Provider>

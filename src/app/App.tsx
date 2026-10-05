@@ -10,6 +10,7 @@ import { RequireAdmin } from './RequireAdmin';
 import { RoutinePage } from '../features/routine/RoutinePage';
 import { NoticesPage } from '../features/notices/NoticesPage';
 import { AttendanceReportsPage } from '../features/reports/AttendanceReportsPage';
+import { SettingsPage } from '../features/settings/SettingsPage';
 
 export function App() {
   return (
@@ -31,6 +32,7 @@ export function App() {
               element={<Navigate to="/academic/campuses" replace />}
             />
             <Route path="academic/:entity" element={<AcademicSetupPage />} />
+            <Route path="settings" element={<SettingsPage />} />
           </Route>
           <Route path=":section" element={<PlaceholderPage />} />
         </Route>
